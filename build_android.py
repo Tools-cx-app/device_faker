@@ -75,7 +75,6 @@ def copy_binary_to_output():
     try:
         project_root = os.path.dirname(os.path.abspath(__file__))
         
-        # 固定的库名称（从 Cargo.toml 中的 [lib] name 读取）
         lib_name = "libzygisk.so"
         
         source_path = os.path.join(project_root, "target", "aarch64-linux-android", "release", lib_name)
@@ -123,7 +122,7 @@ def main():
     print("✅ 构建完成！")
     print(f"模块文件位于 module/ 目录")
     print("✓ Native 库: module/zygisk/arm64-v8a.so")
-    print("\n请将 module/ 目录打包为 ZIP 文件后通过 Magisk 安装")
+    print("\n请将 module/ 目录打包为 ZIP 文件后通过root管理器安装")
     print("=" * 50)
 
 if __name__ == "__main__":

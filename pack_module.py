@@ -33,10 +33,6 @@ def create_magisk_module_zip():
                 # 计算相对路径（相对于 module 目录）
                 arcname = os.path.relpath(file_path, module_dir)
                 
-                # 跳过 list.txt（已废弃）
-                if arcname == "list.txt":
-                    continue
-                
                 zipf.write(file_path, arcname)
                 print(f"  添加: {arcname}")
     
