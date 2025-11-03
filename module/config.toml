@@ -1,6 +1,10 @@
 # 机型伪装配置文件
 # 为不同的应用配置不同的伪装机型
 
+# ============================================================
+# 全局配置
+# ============================================================
+
 # 全局默认模式（推荐使用 lite 以增强隐蔽性）
 # - "lite": 轻量模式，只修改 Build 类，完成后卸载模块（不易被检测）⭐ 推荐
 # - "full": 完整模式，Hook Build + SystemProperties（功能完整，但可能被检测）
@@ -11,27 +15,165 @@ default_mode = "lite"
 # 正常使用时建议设置为 false 或删除此行
 # debug = false
 
-# 示例 1: 使用默认 lite 模式的应用（不易被检测）
+# ============================================================
+# 机型模板定义
+# ============================================================
+# 定义常用机型模板，可以直接在模板中指定包名列表
+
+[templates.redmagic_9_pro]
+# 包名列表
+packages = [
+    "com.mobilelegends.mi",
+    "com.supercell.brawlstars",
+    "com.blizzard.diablo.immortal",
+    "com.netease.newspike",
+    "com.activision.callofduty.warzone",
+]
+# 设备信息
+manufacturer = "ZTE"
+brand = "nubia"
+model = "NX769J"
+device = "REDMAGIC 9 Pro"
+product = "NX769J"
+name = "NX769J"  # 产品内部名称（仅 full 模式生效，影响 ro.product.name）
+fingerprint = "nubia/NX769J/NX769J:14/UKQ1.230917.001/20240813.173312:user/release-keys"
+# mode = "lite"  # 可选：为模板指定默认模式
+
+[templates.xiaomi_13_pro]
+packages = [
+    "com.levelinfinite.sgameGlobal",
+    "com.tencent.tmgp.sgame",
+    "com.pubg.krmobile",
+    "com.netflix.mediaclient",
+]
+manufacturer = "Xiaomi"
+brand = "Xiaomi"
+model = "2210132G"
+device = "Xiaomi 13 Pro"
+product = "2210132G"
+name = "fuxi"  # 产品内部名称（仅 full 模式生效）
+fingerprint = "Xiaomi/fuxi_eea/fuxi:13/TKQ1.221114.001/OS2.0.102.0.VMCEUXM:user/release-keys"
+
+[templates.oneplus_8_pro]
+packages = [
+    "com.riotgames.league.wildrift",
+]
+manufacturer = "OnePlus"
+brand = "OnePlus"
+model = "IN2023"
+device = "OnePlus 8 Pro 5G"
+product = "IN2023"
+name = "OnePlus8Pro"  # 产品内部名称（仅 full 模式生效）
+fingerprint = "OnePlus/IN2023/OnePlus8Pro:13/RKQ1.211119.001/20230501:user/release-keys"
+
+[templates.poco_f5]
+packages = [
+    "com.mobile.legends",
+]
+manufacturer = "Xiaomi"
+brand = "POCO"
+model = "23049PCD8G"
+device = "POCO F5"
+product = "23049PCD8G"
+name = "POCOF5"  # 产品内部名称（仅 full 模式生效）
+fingerprint = "POCO/23049PCD8G/POCOF5:13/TQ3A.230805.001/20230620:user/release-keys"
+
+[templates.rog_phone_6d]
+packages = []  # 暂无应用使用
+manufacturer = "ASUS"
+brand = "ASUS"
+model = "AI2203"
+device = "ROG Phone 6D Ultimate"
+product = "AI2203"
+name = "AI2203"  # 产品内部名称（仅 full 模式生效）
+fingerprint = "ASUS/AI2203/ROG Phone 6D:14/UP1A.231005.007/20240315:user/release-keys"
+
+# 需要完整模式的模板示例（如果某些应用需要 SystemProperties Hook）
+# [templates.special_device_full]
+# packages = [
+#     "com.some.special.app",
+# ]
+# manufacturer = "Xiaomi"
+# brand = "Xiaomi"
+# model = "2210132G"
+# product = "fuxi"
+# name = "fuxi"  # full 模式下生效
+# mode = "full"  # 为这个模板的所有应用设置完整模式
+
+[templates.galaxy_s24_ultra]
+packages = [
+    "com.ea.gp.fifamobile",
+]
+manufacturer = "Samsung"
+brand = "Samsung"
+model = "SM-S928B"
+device = "Galaxy S24 Ultra"
+product = "SM-S928B"
+name = "SM-S928B"  # 产品内部名称（仅 full 模式生效）
+fingerprint = "samsung/SM-S928B/SM-S928B:14/UP1A.231005.007/20240225:user/release-keys"
+
+[templates.pixel_xl]
+packages = [
+    "com.google.android.apps.photos",
+]
+manufacturer = "Google"
+brand = "google"
+model = "marlin"
+device = "Pixel XL"
+product = "marlin"
+name = "marlin"  # 产品内部名称（仅 full 模式生效）
+fingerprint = "google/marlin/marlin:10/QP1A.191005.007.A3/5972272:user/release-keys"
+
+# ============================================================
+# 应用配置
+# ============================================================
+
+# 方式一：使用模板的包名列表
+# 直接在上面的模板中添加包名到 packages 列表即可
+# 不需要在这里单独配置
+
+# 方式二：直接配置
+# 不使用模板，直接指定设备信息
+
 [[apps]]
 package = "com.omarea.vtools"
 manufacturer = "Xiaomi"
 brand = "Xiaomi"
-marketname = "Xiaomi 17 Pro Max"
+marketname = "Xiaomi 17 Pro Max"  # 市场名称（仅 full 模式生效）
 model = "2509FPN0BC"
-name = "popsicle"
+name = "popsicle"  # 产品内部名称（仅 full 模式生效）
 # mode 未设置，使用全局默认的 "lite" 模式
 
-# 示例 2: 需要完整伪装的应用（显式指定 full 模式）
-[[apps]]
-package = "com.coolapk.market"
-manufacturer = "Nothing"
-brand = "Nothing"
-marketname = "Nothing Phone (3)"
-model = "A024"
-name = "nothing3"
-mode = "full"  # 如果此应用需要 SystemProperties Hook，显式使用 full 模式
-
-# 模式说明：
+# ============================================================
+# 配置说明
+# ============================================================
+#
+# 【配置方式】
+# 1. 模板包名列表 - 在模板的 packages 中直接添加包名
+# 2. 直接配置 - 使用 [[apps]] 直接指定设备信息
+#
+# 【优先级】
+# 字段优先级：[[apps]] 直接配置 > 模板 packages 列表
+# 模式优先级：[[apps]].mode > [templates].mode > 全局 default_mode
+#
+# 【模板可以设置模式】⭐
+# 模板支持设置 mode 字段：
+#   [templates.xxx]
+#   packages = ["com.app1", "com.app2"]
+#   mode = "full"  # 这个模板的所有应用都使用 full 模式
+#
+# 如果不设置，使用全局 default_mode
+# 如果需要覆盖，在 [[apps]] 中单独设置
+#
+# 【字段生效范围】⚠️
+# lite 模式（默认）：
+#   ✅ manufacturer, brand, model, device, product, fingerprint
+#   ❌ name, marketname（仅 full 模式生效，影响 SystemProperties）
+#
+# full 模式：
+#   ✅ 所有字段都生效
+# 
+# 【模式说明】
 # 
 # ┌──────────┬────────────┬──────────────┬────────────┬──────────────┐
 # │   模式   │  Build类   │ Properties   │  可卸载    │   隐蔽性     │
@@ -43,7 +185,7 @@ mode = "full"  # 如果此应用需要 SystemProperties Hook，显式使用 full
 # 【lite 模式】（默认，推荐）⭐
 # - 只修改 android.os.Build 类的静态字段
 # - 完成后立即卸载模块，模块不驻留内存
-# - ✅ 优点：隐蔽性极高，与 COPG 相同的工作方式，不易被检测
+# - ✅ 优点：隐蔽性极高，不易被检测
 # - ✅ 优点：对 90% 的应用来说，伪装 Build 类已经足够
 # - ⚠️ 缺点：无法伪装 SystemProperties（极少数应用会检查）
 # - 适用场景：默认选择，适合大多数应用

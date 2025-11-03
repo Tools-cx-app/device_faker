@@ -81,19 +81,18 @@ impl Module for MyModule {
             if config.debug {
                 log::set_max_level(log::LevelFilter::Info);
                 info!("Debug mode enabled");
-                info!("Config loaded with {} apps", config.apps.len());
+                info!(
+                    "Config loaded with {} apps and {} templates",
+                    config.apps.len(),
+                    config.templates.len()
+                );
             }
 
-            // 查找当前应用的配置
-            let app_config = match config.get_app_config(&package_name) {
-                Some(cfg) => {
-                    if config.debug {
-                        info!("Found config for app: {}", package_name);
-                    }
-                    cfg
-                }
+            // 获取合并后的配置（会同时查找直接配置和模板配置）
+            let merged_config = match config.get_merged_config(&package_name) {
+                Some(cfg) => cfg,
                 None => {
-                    // 应用不在配置中，立即卸载模块
+                    // 应用不在配置中
                     if config.debug {
                         info!("App {} not in config, unloading module", package_name);
                     }
@@ -103,19 +102,19 @@ impl Module for MyModule {
             };
 
             // 获取工作模式
-            let mode = config.get_mode(app_config);
+            let mode = &merged_config.mode;
             if config.debug {
                 info!("Using mode: {} for app: {}", mode, package_name);
             }
 
             // Hook Build 类字段（两种模式都需要）
-            self.hook_build_fields(app_config)?;
+            self.hook_build_fields(&merged_config)?;
             if config.debug {
                 info!("Build fields hooked successfully");
             }
 
             // 根据模式决定是否 Hook SystemProperties
-            match mode {
+            match mode.as_str() {
                 "lite" => {
                     // 轻量模式：只修改 Build 类，完成后卸载模块
                     if config.debug {
@@ -134,7 +133,7 @@ impl Module for MyModule {
                     *IS_FULL_MODE.lock().unwrap() = true;
 
                     // 构建属性映射表并存储
-                    let prop_map = Config::build_property_map(app_config);
+                    let prop_map = Config::build_merged_property_map(&merged_config);
                     if config.debug {
                         info!("Property map created with {} entries", prop_map.len());
                     }
@@ -195,7 +194,7 @@ impl MyModule {
     }
 
     /// Hook Build 类的静态字段
-    fn hook_build_fields(&mut self, app_config: &config::AppConfig) -> anyhow::Result<()> {
+    fn hook_build_fields(&mut self, merged_config: &config::MergedAppConfig) -> anyhow::Result<()> {
         unsafe {
             let jni_funcs = (**self.env).v1_4;
 
@@ -207,21 +206,28 @@ impl MyModule {
             }
 
             // 只修改配置中存在的字段
-            if let Some(manufacturer) = &app_config.manufacturer {
+            if let Some(manufacturer) = &merged_config.manufacturer {
                 self.set_build_field_raw(build_class, "MANUFACTURER", manufacturer)?;
             }
 
-            if let Some(brand) = &app_config.brand {
+            if let Some(brand) = &merged_config.brand {
                 self.set_build_field_raw(build_class, "BRAND", brand)?;
             }
 
-            if let Some(model) = &app_config.model {
+            if let Some(model) = &merged_config.model {
                 self.set_build_field_raw(build_class, "MODEL", model)?;
             }
 
-            if let Some(name) = &app_config.name {
-                self.set_build_field_raw(build_class, "PRODUCT", name)?;
-                self.set_build_field_raw(build_class, "DEVICE", name)?;
+            if let Some(device) = &merged_config.device {
+                self.set_build_field_raw(build_class, "DEVICE", device)?;
+            }
+
+            if let Some(product) = &merged_config.product {
+                self.set_build_field_raw(build_class, "PRODUCT", product)?;
+            }
+
+            if let Some(fingerprint) = &merged_config.fingerprint {
+                self.set_build_field_raw(build_class, "FINGERPRINT", fingerprint)?;
             }
         }
 
