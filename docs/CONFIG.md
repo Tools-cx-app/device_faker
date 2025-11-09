@@ -138,12 +138,12 @@ model = "SM-S9280"
 | 字段 | lite 模式 | full 模式 (SystemProperties) | 说明 |
 |------|----------|------------------------------|------|
 | `manufacturer` | `Build.MANUFACTURER` | + `ro.product.manufacturer` | 厂商 (如: Xiaomi, Samsung) |
-| `brand` | `Build.BRAND` | + `ro.product.brand` | 品牌 (如: Redmi, Nothing) |
-| `model` | `Build.MODEL` | + `ro.product.model` | 序号 (如: 2210132G) |
-| `device` | `Build.DEVICE` | (仅 Build 字段) | 型号 (如: REDMAGIC 9 Pro) |
-| `product` | `Build.PRODUCT` | (仅 Build 字段) | 序号 (如: 2509FPN0BC) |
+| `brand` | `Build.BRAND` | + `ro.product.brand` | 品牌 (如: Redmi, nubia) |
+| `model` | `Build.MODEL` | + `ro.product.model` | 序号 (如: 25010PN30C，NX769J) |
+| `device` | `Build.DEVICE` | (仅 Build 字段) | 代号 (如: xuanyuan，NX769J) |
+| `product` | `Build.PRODUCT` | (仅 Build 字段) | 代号 (如: xuanyuan，NX769J) |
 | `fingerprint` | `Build.FINGERPRINT` | + `ro.build.fingerprint` | 指纹 |
-| `name` | ❌ | `ro.product.name` + `ro.product.device` | 代号 (如: fuxi) |
+| `name` | ❌ | `ro.product.name` + `ro.product.device` | 代号 (如: xuanyuan) |
 | `marketname` | ❌ | `ro.product.marketname` | 型号 (如: REDMI K90 Pro Max) |
 
 **注意**:

@@ -88,19 +88,19 @@
         </el-form-item>
 
         <el-form-item label="Model">
-          <el-input v-model="formData.model" placeholder="例如：NX769J" />
+          <el-input v-model="formData.model" placeholder="例如：25010PN30C，NX769J" />
         </el-form-item>
 
         <el-form-item label="Device">
-          <el-input v-model="formData.device" placeholder="例如：REDMAGIC 9 Pro" />
+          <el-input v-model="formData.device" placeholder="例如：xuanyuan，NX769J" />
         </el-form-item>
 
         <el-form-item label="Product">
-          <el-input v-model="formData.product" placeholder="例如：NX769J" />
+          <el-input v-model="formData.product" placeholder="例如：xuanyuan，NX769J" />
         </el-form-item>
 
         <el-form-item label="Name (可选，仅 full 模式)">
-          <el-input v-model="formData.name_field" placeholder="例如：" />
+          <el-input v-model="formData.name_field" placeholder="例如：xuanyuan" />
         </el-form-item>
 
         <el-form-item label="Market Name (可选，仅 full 模式)">
