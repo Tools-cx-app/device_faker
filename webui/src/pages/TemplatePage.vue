@@ -2,10 +2,16 @@
   <div class="template-page">
     <div class="page-header">
       <h2 class="page-title">机型模板</h2>
-      <button class="add-btn" @click="showAddDialog">
-        <Plus :size="20" />
-        新建模板
-      </button>
+      <div class="header-actions">
+        <button class="add-btn secondary" @click="showOnlineDialog">
+          <Download :size="20" />
+          在线模板
+        </button>
+        <button class="add-btn" @click="showAddDialog">
+          <Plus :size="20" />
+          新建模板
+        </button>
+      </div>
     </div>
 
     <div class="template-list">
@@ -170,15 +176,19 @@
         <el-button type="primary" @click="saveTemplate">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 在线模板对话框 -->
+    <OnlineTemplateDialog v-model="onlineDialogVisible" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated } from 'vue'
-import { Plus, Edit2, Trash2, FileText } from 'lucide-vue-next'
+import { Plus, Edit2, Trash2, FileText, Download } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useConfigStore } from '../stores/config'
 import { useAppsStore } from '../stores/apps'
+import OnlineTemplateDialog from '../components/OnlineTemplateDialog.vue'
 import type { Template } from '../types'
 
 const configStore = useConfigStore()
@@ -188,6 +198,7 @@ const templates = computed(() => configStore.getTemplates())
 const installedApps = computed(() => appsStore.installedApps)
 
 const dialogVisible = ref(false)
+const onlineDialogVisible = ref(false)
 const isEditing = ref(false)
 const packageInput = ref('')
 const formData = ref({
@@ -203,6 +214,10 @@ const formData = ref({
   mode: '',
   packages: [] as string[],
 })
+
+function showOnlineDialog() {
+  onlineDialogVisible.value = true
+}
 
 function showAddDialog() {
   isEditing.value = false
@@ -382,6 +397,11 @@ onActivated(() => {
   color: var(--text);
 }
 
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .add-btn {
   display: flex;
   align-items: center;
@@ -397,6 +417,12 @@ onActivated(() => {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.add-btn.secondary {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 .add-btn:active {
