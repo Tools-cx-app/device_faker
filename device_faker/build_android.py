@@ -15,22 +15,24 @@ def check_ndk_path():
 def add_android_target():
     print("添加Android 64位目标...")
     try:
-        # 确保在项目根目录执行rustup命令
-        project_root = os.path.dirname(os.path.abspath(__file__))
-        subprocess.run(["rustup", "target", "add", "aarch64-linux-android"], check=True, cwd=project_root)
+        # 脚本在 device_faker/ 子目录，向上一级到 workspace root
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        workspace_root = os.path.dirname(script_dir)
+        subprocess.run(["rustup", "target", "add", "aarch64-linux-android"], check=True, cwd=workspace_root)
     except subprocess.CalledProcessError as e:
         print(f"添加Android目标失败: {e}")
         sys.exit(1)
 
 def run_fmt_and_clippy():
-    # 确保在项目根目录执行cargo命令
-    project_root = os.path.dirname(os.path.abspath(__file__))
+    # 脚本在 device_faker/ 子目录，向上一级到 workspace root
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    workspace_root = os.path.dirname(script_dir)
     
     print("检查代码格式...")
     
-    # 先检查是否需要格式化
+    # 检查当前包的格式（在子目录中运行）
     fmt_check_result = subprocess.run(["cargo", "fmt", "--", "--check"], 
-                                    cwd=project_root, 
+                                    cwd=script_dir, 
                                     capture_output=True, 
                                     text=True)
     
@@ -39,7 +41,7 @@ def run_fmt_and_clippy():
     else:
         print("检测到代码格式问题，正在格式化...")
         try:
-            subprocess.run(["cargo", "fmt"], check=True, cwd=project_root)
+            subprocess.run(["cargo", "fmt"], check=True, cwd=script_dir)
             print("代码格式化完成")
         except subprocess.CalledProcessError as e:
             print(f"代码格式化失败: {e}")
@@ -47,10 +49,11 @@ def run_fmt_and_clippy():
                 print(f"错误详情: {e.stderr}")
             sys.exit(1)
     
-    # 运行clippy检查
+    # 运行clippy检查（直接检查当前包）
     print("运行 clippy 检查...")
     try:
-        subprocess.run(["cargo", "clippy", "--target", "aarch64-linux-android", "--", "-D", "warnings"], check=True, cwd=project_root)
+        subprocess.run(["cargo", "clippy", "--target", "aarch64-linux-android", "--", "-D", "warnings"], 
+                      check=True, cwd=script_dir)
         print("clippy 检查通过")
     except subprocess.CalledProcessError as e:
         print(f"clippy检查失败: {e}")
@@ -62,10 +65,10 @@ def run_fmt_and_clippy():
 def build_android():
     print("构建Android 64位版本...")
     try:
-        # 确保在项目根目录执行cargo命令
-        project_root = os.path.dirname(os.path.abspath(__file__))
+        # 脚本在 device_faker/ 子目录，直接构建当前包
+        script_dir = os.path.dirname(os.path.abspath(__file__))
         subprocess.run(["cargo", "build", "--target", "aarch64-linux-android", "--release"], 
-                      check=True, cwd=project_root)
+                      check=True, cwd=script_dir)
     except subprocess.CalledProcessError as e:
         print(f"构建Android版本失败: {e}")
         sys.exit(1)
@@ -73,12 +76,14 @@ def build_android():
 def copy_binary_to_output():
     print("将构建的二进制文件复制到module文件夹...")
     try:
-        project_root = os.path.dirname(os.path.abspath(__file__))
+        # 脚本在 device_faker/ 子目录，需要向上一级到达 workspace 根目录
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        workspace_root = os.path.dirname(script_dir)
         
         lib_name = "libzygisk.so"
         
-        source_path = os.path.join(project_root, "target", "aarch64-linux-android", "release", lib_name)
-        output_dir = os.path.join(project_root, "module", "zygisk")
+        source_path = os.path.join(workspace_root, "target", "aarch64-linux-android", "release", lib_name)
+        output_dir = os.path.join(workspace_root, "module", "zygisk")
         
         # 检查源文件是否存在
         if not os.path.exists(source_path):
@@ -107,7 +112,7 @@ def copy_binary_to_output():
         sys.exit(1)
 
 def main():
-    print("机型伪装 Zygisk 模块构建脚本 (仅64位)")
+    print("Device Faker 模块构建脚本 (仅64位)")
     print("=" * 50)
 
     check_ndk_path()
@@ -120,8 +125,8 @@ def main():
     
     print("\n" + "=" * 50)
     print("✅ 构建完成！")
-    print(f"模块文件位于 module/ 目录")
-    print("✓ Native 库: module/zygisk/arm64-v8a.so")
+    print(f"模块文件位于 ../module/ 目录")
+    print("✓ Native 库: ../module/zygisk/arm64-v8a.so")
     print("\n请将 module/ 目录打包为 ZIP 文件后通过root管理器安装")
     print("=" * 50)
 

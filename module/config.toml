@@ -101,22 +101,13 @@ fingerprint = "google/marlin/marlin:10/QP1A.191005.007.A3/5972272:user/release-k
 # QQ 平板模式配置
 # 使用 resetprop 修改 ro.build.characteristics 为 tablet
 # 机型伪装为 Xiaomi Pad 6 Pro (23046RP50C)
-[[apps]]
-package = "com.tencent.mobileqq"
-mode = "resetprop"
-characteristics = "tablet"
-manufacturer = "Xiaomi"
-brand = "Xiaomi"
-model = "23046RP50C"
-
-[[apps]]
-package = "com.omarea.vtools"
-manufacturer = "Xiaomi"
-brand = "Xiaomi"
-marketname = "Xiaomi 17 Pro Max"  # 市场名称（仅 full 模式生效）
-model = "2509FPN0BC"
-name = "popsicle"  # 产品内部名称（仅 full 模式生效）
-mode = "full"  # 为这个应用设置完整模式 
+#[[apps]]
+#package = "com.tencent.mobileqq"
+#mode = "resetprop"
+#characteristics = "tablet"
+#manufacturer = "Xiaomi"
+#brand = "Xiaomi"
+#model = "23046RP50C"
 
 [[apps]]
 package = "com.coolapk.market"

@@ -57,6 +57,7 @@ ui_print "- 修改配置后无需重启，仅需重启对应应用"
 
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 set_perm_recursive "$MODPATH/zygisk" 0 0 0755 0644
+set_perm $MODPATH/bin/device_faker_cli 0 0 0755
 
 ui_print "- 安装完成！"
 ui_print "- 重启设备后生效"

@@ -183,9 +183,15 @@ export async function fetchOnlineTemplates(): Promise<OnlineTemplate[]> {
  * 下载并解析模板内容
  */
 export async function downloadTemplate(onlineTemplate: OnlineTemplate): Promise<Template | null> {
+  const CLI_PATH = '/data/adb/modules/device_faker/bin/device_faker_cli'
+  const tempFile = `/data/local/tmp/template_${Date.now()}.toml`
+
   try {
-    // 使用 curl 命令下载文件
-    const content = await execCommand(`curl -s "${onlineTemplate.downloadUrl}"`)
+    // 使用 device_faker_cli (Rust 实现)
+    await execCommand(`${CLI_PATH} import -s "${onlineTemplate.downloadUrl}" -o "${tempFile}"`)
+    const content = await execCommand(`cat "${tempFile}"`)
+    await execCommand(`rm -f "${tempFile}"`).catch(() => { })
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parsed = parseToml(content) as any
 
