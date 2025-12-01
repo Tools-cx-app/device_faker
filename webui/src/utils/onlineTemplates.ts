@@ -38,8 +38,12 @@ async function getTomlFilesFromHTML(
   const url = `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/tree/main/${path}`
 
   try {
-    // 使用 curl 命令获取 HTML
-    const html = await execCommand(`curl -s "${url}"`)
+    // 使用 fetch 获取 HTML
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    const html = await response.text()
 
     // 解析 HTML 找到文件和目录链接
     // Gitee 的文件链接格式: /Seyud/device_faker_config_mirror/blob/main/templates/...
@@ -100,7 +104,7 @@ async function getTomlFilesFromHTML(
 }
 
 /**
- * 使用 curl 命令获取 API 数据（避免 CORS 问题）
+ * 使用 fetch API 获取 Gitee API 数据
  */
 async function getTomlFilesFromAPI(
   path: string,
@@ -110,8 +114,12 @@ async function getTomlFilesFromAPI(
   const templates: OnlineTemplate[] = []
 
   try {
-    // 使用 curl 命令获取数据
-    const jsonStr = await execCommand(`curl -s "${url}"`)
+    // 使用 fetch 获取 API 数据
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    const jsonStr = await response.text()
     const files = JSON.parse(jsonStr)
 
     if (!Array.isArray(files)) {

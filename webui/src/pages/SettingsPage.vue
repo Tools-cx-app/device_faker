@@ -243,9 +243,6 @@ async function startConversion() {
       throw new Error('Invalid TOML output from CLI')
     }
 
-    console.log('CLI Output:', outputContent)
-    console.log('Parsed TOML:', parsed)
-
     let templateData: Template | null = null
     let defaultName = 'imported_template'
 
@@ -258,7 +255,7 @@ async function startConversion() {
     // 1. Check if parsed object itself is a template (flat format)
     if (isTemplate(parsed)) {
       templateData = parsed as Template
-    } 
+    }
     // 2. Check if parsed has 'templates' and look inside
     else if (parsed.templates && typeof parsed.templates === 'object') {
       // Try to find a template in parsed.templates
@@ -272,14 +269,14 @@ async function startConversion() {
         }
         // Handle double nesting [templates.templates."Name"]
         if (val && typeof val === 'object') {
-           for (const subKey of Object.keys(val)) {
-             const subVal = val[subKey]
-             if (isTemplate(subVal)) {
-               defaultName = subKey
-               templateData = subVal
-               break
-             }
-           }
+          for (const subKey of Object.keys(val)) {
+            const subVal = val[subKey]
+            if (isTemplate(subVal)) {
+              defaultName = subKey
+              templateData = subVal
+              break
+            }
+          }
         }
         if (templateData) break
       }
@@ -303,7 +300,7 @@ async function startConversion() {
     convertedTemplate.value = templateData
     convertedTemplateName.value = defaultName
     convertedContent.value = outputContent
-    
+
     // Close input dialog and show result dialog
     inputDialogVisible.value = false
     convertDialogVisible.value = true
