@@ -254,6 +254,7 @@ watch(
   gap: 0.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--border);
+  flex-wrap: nowrap;
 }
 
 .category-tab {
@@ -265,6 +266,7 @@ watch(
   font-size: 0.875rem;
   transition: all 0.2s ease;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .category-tab:hover {
