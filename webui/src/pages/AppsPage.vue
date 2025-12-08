@@ -7,7 +7,7 @@
         :placeholder="t('apps.search_placeholder')"
         prefix-icon="Search"
         clearable
-        style="max-width: 300px"
+        style="width: 100%; max-width: 400px"
       />
     </div>
 
@@ -124,32 +124,53 @@
       <div v-if="configMode === 'custom'" class="custom-config">
         <el-form :model="customFormData" label-width="120px" label-position="top">
           <el-form-item :label="t('templates.fields.manufacturer')">
-            <el-input v-model="customFormData.manufacturer" placeholder="例如：ZTE" />
+            <el-input
+              v-model="customFormData.manufacturer"
+              :placeholder="t('templates.placeholders.manufacturer')"
+            />
           </el-form-item>
           <el-form-item :label="t('templates.fields.brand')">
-            <el-input v-model="customFormData.brand" placeholder="例如：nubia" />
+            <el-input
+              v-model="customFormData.brand"
+              :placeholder="t('templates.placeholders.brand')"
+            />
           </el-form-item>
           <el-form-item :label="t('templates.fields.model')">
-            <el-input v-model="customFormData.model" placeholder="例如：25010PN30C，NX769J" />
+            <el-input
+              v-model="customFormData.model"
+              :placeholder="t('templates.placeholders.model')"
+            />
           </el-form-item>
           <el-form-item :label="t('templates.fields.device')">
-            <el-input v-model="customFormData.device" placeholder="例如：xuanyuan，NX769J" />
+            <el-input
+              v-model="customFormData.device"
+              :placeholder="t('templates.placeholders.device')"
+            />
           </el-form-item>
           <el-form-item :label="t('templates.fields.product')">
-            <el-input v-model="customFormData.product" placeholder="例如：xuanyuan，NX769J" />
+            <el-input
+              v-model="customFormData.product"
+              :placeholder="t('templates.placeholders.product')"
+            />
           </el-form-item>
           <el-form-item :label="t('templates.fields.name_field')">
-            <el-input v-model="customFormData.name" placeholder="例如：xuanyuan" />
+            <el-input
+              v-model="customFormData.name"
+              :placeholder="t('templates.placeholders.name_field')"
+            />
           </el-form-item>
           <el-form-item :label="t('templates.fields.market_name')">
-            <el-input v-model="customFormData.marketname" placeholder="例如：REDMAGIC 9 Pro" />
+            <el-input
+              v-model="customFormData.marketname"
+              :placeholder="t('templates.placeholders.market_name')"
+            />
           </el-form-item>
           <el-form-item :label="t('templates.fields.fingerprint')">
             <el-input
               v-model="customFormData.fingerprint"
               type="textarea"
               :rows="3"
-              placeholder="例如：nubia/NX769J/NX769J:14/UKQ1.230917.001/20240813.173312:user/release-keys"
+              :placeholder="t('templates.placeholders.fingerprint')"
             />
           </el-form-item>
           <el-form-item :label="t('templates.fields.mode')">
@@ -157,6 +178,7 @@
               v-model="customFormData.mode"
               :placeholder="t('templates.placeholders.mode')"
               clearable
+              popper-class="mode-select-popper"
               style="width: 100%"
             >
               <el-option :label="t('templates.options.mode_lite')" value="lite" />
@@ -516,8 +538,8 @@ onUnmounted(() => {
 
 .page-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 1rem;
   margin-bottom: 0.5rem;
 }

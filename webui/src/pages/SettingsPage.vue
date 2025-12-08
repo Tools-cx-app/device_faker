@@ -74,7 +74,7 @@
     <div class="settings-section glass-effect">
       <h2 class="section-title">{{ t('settings.tools.title') }}</h2>
 
-      <div class="setting-item setting-item-horizontal">
+      <div class="setting-item">
         <div class="setting-info">
           <div class="setting-icon">
             <FileUp :size="24" />
@@ -105,6 +105,8 @@
           <el-input
             v-model="convertPath"
             :placeholder="t('settings.dialog.convert.path_placeholder')"
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 2 }"
             @keyup.enter="startConversion"
           />
           <div class="form-tip">{{ t('settings.dialog.convert.default_path_tip') }}</div>

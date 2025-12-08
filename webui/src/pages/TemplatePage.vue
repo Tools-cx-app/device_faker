@@ -88,31 +88,40 @@
         </el-form-item>
 
         <el-form-item :label="t('templates.fields.manufacturer')">
-          <el-input v-model="formData.manufacturer" placeholder="例如：ZTE" />
+          <el-input
+            v-model="formData.manufacturer"
+            :placeholder="t('templates.placeholders.manufacturer')"
+          />
         </el-form-item>
 
         <el-form-item :label="t('templates.fields.brand')">
-          <el-input v-model="formData.brand" placeholder="例如：nubia" />
+          <el-input v-model="formData.brand" :placeholder="t('templates.placeholders.brand')" />
         </el-form-item>
 
         <el-form-item :label="t('templates.fields.model')">
-          <el-input v-model="formData.model" placeholder="例如：25010PN30C，NX769J" />
+          <el-input v-model="formData.model" :placeholder="t('templates.placeholders.model')" />
         </el-form-item>
 
         <el-form-item :label="t('templates.fields.device')">
-          <el-input v-model="formData.device" placeholder="例如：xuanyuan，NX769J" />
+          <el-input v-model="formData.device" :placeholder="t('templates.placeholders.device')" />
         </el-form-item>
 
         <el-form-item :label="t('templates.fields.product')">
-          <el-input v-model="formData.product" placeholder="例如：xuanyuan，NX769J" />
+          <el-input v-model="formData.product" :placeholder="t('templates.placeholders.product')" />
         </el-form-item>
 
         <el-form-item :label="t('templates.fields.name_field')">
-          <el-input v-model="formData.name_field" placeholder="例如：xuanyuan" />
+          <el-input
+            v-model="formData.name_field"
+            :placeholder="t('templates.placeholders.name_field')"
+          />
         </el-form-item>
 
         <el-form-item :label="t('templates.fields.market_name')">
-          <el-input v-model="formData.marketname" placeholder="例如：REDMAGIC 9 Pro" />
+          <el-input
+            v-model="formData.marketname"
+            :placeholder="t('templates.placeholders.market_name')"
+          />
         </el-form-item>
 
         <el-form-item :label="t('templates.fields.fingerprint')">
@@ -120,7 +129,7 @@
             v-model="formData.fingerprint"
             type="textarea"
             :rows="3"
-            placeholder="例如：nubia/NX769J/NX769J:14/UKQ1.230917.001/20240813.173312:user/release-keys"
+            :placeholder="t('templates.placeholders.fingerprint')"
           />
         </el-form-item>
 
@@ -129,6 +138,7 @@
             v-model="formData.mode"
             :placeholder="t('templates.placeholders.mode')"
             clearable
+            popper-class="mode-select-popper"
           >
             <el-option :label="t('templates.options.mode_lite')" value="lite" />
             <el-option :label="t('templates.options.mode_full')" value="full" />
@@ -137,7 +147,7 @@
 
         <el-form-item :label="t('templates.fields.packages')">
           <div class="package-manager">
-            <div class="package-input-wrapper">
+            <div :class="['package-input-wrapper', { 'stacked-layout': locale === 'en' }]">
               <el-autocomplete
                 v-model="packageInput"
                 :fetch-suggestions="searchPackages"
@@ -158,7 +168,6 @@
               <el-button type="primary" :disabled="!packageInput" @click="addPackage">{{
                 t('templates.actions.add')
               }}</el-button>
-              >
             </div>
 
             <div v-if="formData.packages.length > 0" class="package-list">
@@ -684,6 +693,15 @@ onActivated(() => {
   align-items: flex-start;
 }
 
+.package-input-wrapper.stacked-layout {
+  flex-direction: column;
+}
+
+.package-input-wrapper.stacked-layout .el-autocomplete,
+.package-input-wrapper.stacked-layout .el-button {
+  width: 100%;
+}
+
 .package-suggestion {
   padding: 0.25rem 0;
 }
@@ -920,5 +938,18 @@ onActivated(() => {
     border: 1px solid rgba(255, 255, 255, 0.15) !important;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
   }
+}
+
+.mode-select-popper .el-select-dropdown__item {
+  white-space: pre-line;
+  line-height: 1.4;
+  height: auto;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  word-break: break-word;
+}
+
+.mode-select-popper .el-select-dropdown__item span {
+  white-space: pre-line;
 }
 </style>

@@ -55,6 +55,15 @@ export const messages = {
       },
       placeholders: {
         name: '例如：redmagic_9_pro',
+        manufacturer: '例如：ZTE',
+        brand: '例如：nubia',
+        model: '例如：25010PN30C，NX769J',
+        device: '例如：xuanyuan，NX769J',
+        product: '例如：xuanyuan，NX769J',
+        name_field: '例如：xuanyuan',
+        market_name: '例如：REDMAGIC 9 Pro',
+        fingerprint:
+          '例如：nubia/NX769J/NX769J:14/UKQ1.230917.001/20240813.173312:user/release-keys',
         mode: '留空使用全局默认模式',
         packages: '输入或搜索应用包名',
       },
@@ -280,12 +289,21 @@ export const messages = {
       },
       placeholders: {
         name: 'e.g. redmagic_9_pro',
+        manufacturer: 'e.g. ZTE',
+        brand: 'e.g. nubia',
+        model: 'e.g. 25010PN30C, NX769J',
+        device: 'e.g. xuanyuan, NX769J',
+        product: 'e.g. xuanyuan, NX769J',
+        name_field: 'e.g. xuanyuan',
+        market_name: 'e.g. REDMAGIC 9 Pro',
+        fingerprint:
+          'e.g. nubia/NX769J/NX769J:14/UKQ1.230917.001/20240813.173312:user/release-keys',
         mode: 'Leave empty to use global default',
         packages: 'Enter or search package name',
       },
       options: {
-        mode_lite: 'lite - Lite Mode (Recommended, Stealthy)',
-        mode_full: 'full - Full Mode (Complete Spoofing, Detectable)',
+        mode_lite: 'lite - Lite Mode\n(Recommended, Stealthy)',
+        mode_full: 'full - Full Mode\n(Complete Spoofing, Detectable)',
       },
       empty: {
         title: 'No Templates Found',
