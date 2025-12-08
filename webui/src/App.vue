@@ -35,6 +35,7 @@ import { ref, computed, onMounted, onUnmounted, watchEffect, nextTick } from 'vu
 import { Home, FileText, Smartphone, Settings } from 'lucide-vue-next'
 import { useConfigStore } from './stores/config'
 import { useSettingsStore } from './stores/settings'
+import { useI18n } from './utils/i18n'
 import StatusPage from './pages/StatusPage.vue'
 import TemplatePage from './pages/TemplatePage.vue'
 import AppsPage from './pages/AppsPage.vue'
@@ -100,15 +101,17 @@ const isDark = computed(() => {
   return settingsStore.theme === 'dark'
 })
 
-const pages = [
-  { id: 'status', label: '状态', icon: Home, component: StatusPage },
-  { id: 'templates', label: '模板', icon: FileText, component: TemplatePage },
-  { id: 'apps', label: '应用', icon: Smartphone, component: AppsPage },
-  { id: 'settings', label: '设置', icon: Settings, component: SettingsPage },
-]
+const { t } = useI18n()
+
+const pages = computed(() => [
+  { id: 'status', label: t('nav.status'), icon: Home, component: StatusPage },
+  { id: 'templates', label: t('nav.templates'), icon: FileText, component: TemplatePage },
+  { id: 'apps', label: t('nav.apps'), icon: Smartphone, component: AppsPage },
+  { id: 'settings', label: t('nav.settings'), icon: Settings, component: SettingsPage },
+])
 
 const currentPageComponent = computed(() => {
-  return pages.find((p) => p.id === currentPage.value)?.component || StatusPage
+  return pages.value.find((p) => p.id === currentPage.value)?.component || StatusPage
 })
 
 // 应用深色模式到 html 元素（Element Plus 需要）

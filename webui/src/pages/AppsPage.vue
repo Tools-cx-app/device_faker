@@ -1,10 +1,10 @@
 <template>
   <div class="apps-page">
     <div class="page-header">
-      <h2 class="page-title">应用管理</h2>
+      <h2 class="page-title">{{ t('apps.title') }}</h2>
       <el-input
         v-model="searchQuery"
-        placeholder="搜索应用或包名"
+        :placeholder="t('apps.search_placeholder')"
         prefix-icon="Search"
         clearable
         style="max-width: 300px"
@@ -13,19 +13,19 @@
 
     <div class="filter-tabs">
       <button :class="['filter-tab', { active: filterType === 'all' }]" @click="filterType = 'all'">
-        全部 ({{ installedApps.length }})
+        {{ t('apps.tabs.all') }} ({{ installedApps.length }})
       </button>
       <button
         :class="['filter-tab', { active: filterType === 'configured' }]"
         @click="filterType = 'configured'"
       >
-        已配置 ({{ configuredCount }})
+        {{ t('apps.tabs.configured') }} ({{ configuredCount }})
       </button>
       <button
         :class="['filter-tab', { active: filterType === 'unconfigured' }]"
         @click="filterType = 'unconfigured'"
       >
-        未配置 ({{ unconfiguredCount }})
+        {{ t('apps.tabs.unconfigured') }} ({{ unconfiguredCount }})
       </button>
     </div>
 
@@ -71,9 +71,9 @@
           <p class="app-package">{{ app.packageName }}</p>
           <p v-if="getAppConfig(app.packageName)" class="app-status configured">
             <Check :size="14" />
-            已配置
+            {{ t('apps.status.configured') }}
           </p>
-          <p v-else class="app-status unconfigured">未配置</p>
+          <p v-else class="app-status unconfigured">{{ t('apps.status.unconfigured') }}</p>
         </div>
         <div class="app-actions">
           <ChevronRight :size="20" />
@@ -89,7 +89,7 @@
     <!-- 配置对话框 -->
     <el-dialog
       v-model="configDialogVisible"
-      :title="`配置 ${currentApp?.appName}`"
+      :title="t('apps.dialog.config_title', { name: currentApp?.appName || '' })"
       width="90%"
       :close-on-click-modal="false"
       :append-to-body="true"
@@ -100,14 +100,18 @@
     >
       <div class="config-options">
         <el-radio-group v-model="configMode">
-          <el-radio label="template">应用模板</el-radio>
-          <el-radio label="custom">自定义配置</el-radio>
-          <el-radio label="remove">移除配置</el-radio>
+          <el-radio label="template">{{ t('apps.dialog.mode_template') }}</el-radio>
+          <el-radio label="custom">{{ t('apps.dialog.mode_custom') }}</el-radio>
+          <el-radio label="remove">{{ t('apps.dialog.mode_remove') }}</el-radio>
         </el-radio-group>
       </div>
 
       <div v-if="configMode === 'template'" class="template-selector">
-        <el-select v-model="selectedTemplate" placeholder="选择机型模板" style="width: 100%">
+        <el-select
+          v-model="selectedTemplate"
+          :placeholder="t('apps.dialog.select_template_placeholder')"
+          style="width: 100%"
+        >
           <el-option
             v-for="(template, name) in templates"
             :key="name"
@@ -119,28 +123,28 @@
 
       <div v-if="configMode === 'custom'" class="custom-config">
         <el-form :model="customFormData" label-width="120px" label-position="top">
-          <el-form-item label="Manufacturer">
+          <el-form-item :label="t('templates.fields.manufacturer')">
             <el-input v-model="customFormData.manufacturer" placeholder="例如：ZTE" />
           </el-form-item>
-          <el-form-item label="Brand">
+          <el-form-item :label="t('templates.fields.brand')">
             <el-input v-model="customFormData.brand" placeholder="例如：nubia" />
           </el-form-item>
-          <el-form-item label="Model">
+          <el-form-item :label="t('templates.fields.model')">
             <el-input v-model="customFormData.model" placeholder="例如：25010PN30C，NX769J" />
           </el-form-item>
-          <el-form-item label="Device">
+          <el-form-item :label="t('templates.fields.device')">
             <el-input v-model="customFormData.device" placeholder="例如：xuanyuan，NX769J" />
           </el-form-item>
-          <el-form-item label="Product">
+          <el-form-item :label="t('templates.fields.product')">
             <el-input v-model="customFormData.product" placeholder="例如：xuanyuan，NX769J" />
           </el-form-item>
-          <el-form-item label="Name (可选，仅 full 模式)">
+          <el-form-item :label="t('templates.fields.name_field')">
             <el-input v-model="customFormData.name" placeholder="例如：xuanyuan" />
           </el-form-item>
-          <el-form-item label="Market Name (可选，仅 full 模式)">
+          <el-form-item :label="t('templates.fields.market_name')">
             <el-input v-model="customFormData.marketname" placeholder="例如：REDMAGIC 9 Pro" />
           </el-form-item>
-          <el-form-item label="Fingerprint">
+          <el-form-item :label="t('templates.fields.fingerprint')">
             <el-input
               v-model="customFormData.fingerprint"
               type="textarea"
@@ -148,27 +152,27 @@
               placeholder="例如：nubia/NX769J/NX769J:14/UKQ1.230917.001/20240813.173312:user/release-keys"
             />
           </el-form-item>
-          <el-form-item label="工作模式 (可选)">
+          <el-form-item :label="t('templates.fields.mode')">
             <el-select
               v-model="customFormData.mode"
-              placeholder="留空使用全局默认模式"
+              :placeholder="t('templates.placeholders.mode')"
               clearable
               style="width: 100%"
             >
-              <el-option label="lite - 轻量模式（推荐，隐蔽性好）" value="lite" />
-              <el-option label="full - 完整模式（全面伪装，可能被检测）" value="full" />
+              <el-option :label="t('templates.options.mode_lite')" value="lite" />
+              <el-option :label="t('templates.options.mode_full')" value="full" />
             </el-select>
           </el-form-item>
         </el-form>
       </div>
 
       <div v-if="configMode === 'remove'" class="remove-hint">
-        <p>确定要移除该应用的伪装配置吗？</p>
+        <p>{{ t('apps.dialog.remove_hint') }}</p>
       </div>
 
       <template #footer>
-        <el-button @click="configDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveAppConfig">确定</el-button>
+        <el-button @click="configDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="saveAppConfig">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -180,10 +184,12 @@ import { Smartphone, ChevronRight, Check } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
 import { useConfigStore } from '../stores/config'
 import { useAppsStore } from '../stores/apps'
+import { useI18n } from '../utils/i18n'
 import type { InstalledApp, AppConfig } from '../types'
 
 const configStore = useConfigStore()
 const appsStore = useAppsStore()
+const { t } = useI18n()
 
 const searchQuery = ref('')
 const filterType = ref<'all' | 'configured' | 'unconfigured'>('all')
@@ -228,15 +234,15 @@ const filteredApps = computed(() => {
 
 const emptyText = computed(() => {
   if (searchQuery.value) {
-    return '未找到匹配的应用'
+    return t('apps.empty.search')
   }
   if (filterType.value === 'configured') {
-    return '暂无已配置的应用'
+    return t('apps.empty.configured')
   }
   if (filterType.value === 'unconfigured') {
-    return '所有应用都已配置'
+    return t('apps.empty.unconfigured')
   }
-  return '暂无应用'
+  return t('apps.empty.all')
 })
 
 const configDialogVisible = ref(false)
@@ -309,7 +315,7 @@ async function saveAppConfig() {
     }
   } else if (configMode.value === 'template') {
     if (!selectedTemplate.value) {
-      ElMessage.error('请选择模板')
+      ElMessage.error(t('apps.messages.select_template'))
       return
     }
     // 应用模板
@@ -340,10 +346,10 @@ async function saveAppConfig() {
 
   try {
     await configStore.saveConfig()
-    ElMessage.success('配置已保存')
+    ElMessage.success(t('apps.messages.saved'))
     configDialogVisible.value = false
   } catch {
-    ElMessage.error('保存失败')
+    ElMessage.error(t('common.failed'))
   }
 }
 

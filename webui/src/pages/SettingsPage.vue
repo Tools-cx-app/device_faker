@@ -1,7 +1,7 @@
 <template>
   <div class="settings-page">
     <div class="settings-section glass-effect">
-      <h2 class="section-title">显示设置</h2>
+      <h2 class="section-title">{{ t('settings.display.title') }}</h2>
 
       <div class="setting-item">
         <div class="setting-info">
@@ -9,14 +9,14 @@
             <Moon :size="24" />
           </div>
           <div class="setting-text">
-            <h3 class="setting-name">主题</h3>
-            <p class="setting-desc">选择界面主题</p>
+            <h3 class="setting-name">{{ t('settings.display.theme.label') }}</h3>
+            <p class="setting-desc">{{ t('settings.display.theme.desc') }}</p>
           </div>
         </div>
         <el-select v-model="currentTheme" class="setting-control" @change="onThemeChange">
-          <el-option label="跟随系统" value="system" />
-          <el-option label="浅色模式" value="light" />
-          <el-option label="深色模式" value="dark" />
+          <el-option :label="t('settings.display.theme.system')" value="system" />
+          <el-option :label="t('settings.display.theme.light')" value="light" />
+          <el-option :label="t('settings.display.theme.dark')" value="dark" />
         </el-select>
       </div>
 
@@ -26,20 +26,20 @@
             <Globe :size="24" />
           </div>
           <div class="setting-text">
-            <h3 class="setting-name">语言</h3>
-            <p class="setting-desc">选择界面语言</p>
+            <h3 class="setting-name">{{ t('settings.display.language.label') }}</h3>
+            <p class="setting-desc">{{ t('settings.display.language.desc') }}</p>
           </div>
         </div>
         <el-select v-model="currentLanguage" class="setting-control" @change="onLanguageChange">
-          <el-option label="跟随系统" value="system" />
-          <el-option label="简体中文" value="zh" />
-          <el-option label="English" value="en" />
+          <el-option :label="t('settings.display.language.system')" value="system" />
+          <el-option :label="t('settings.display.language.zh')" value="zh" />
+          <el-option :label="t('settings.display.language.en')" value="en" />
         </el-select>
       </div>
     </div>
 
     <div class="settings-section glass-effect">
-      <h2 class="section-title">模块设置</h2>
+      <h2 class="section-title">{{ t('settings.module.title') }}</h2>
 
       <div class="setting-item">
         <div class="setting-info">
@@ -47,13 +47,13 @@
             <Settings :size="24" />
           </div>
           <div class="setting-text">
-            <h3 class="setting-name">默认工作模式</h3>
-            <p class="setting-desc">选择模块的默认工作模式</p>
+            <h3 class="setting-name">{{ t('settings.module.default_mode.label') }}</h3>
+            <p class="setting-desc">{{ t('settings.module.default_mode.desc') }}</p>
           </div>
         </div>
         <el-select v-model="defaultMode" class="setting-control" @change="onModeChange">
-          <el-option label="轻量模式 (推荐)" value="lite" />
-          <el-option label="完整模式" value="full" />
+          <el-option :label="t('settings.module.default_mode.lite')" value="lite" />
+          <el-option :label="t('settings.module.default_mode.full')" value="full" />
         </el-select>
       </div>
 
@@ -63,8 +63,8 @@
             <Bug :size="24" />
           </div>
           <div class="setting-text">
-            <h3 class="setting-name">调试模式</h3>
-            <p class="setting-desc">启用后可在 logcat 中查看详细日志</p>
+            <h3 class="setting-name">{{ t('settings.module.debug.label') }}</h3>
+            <p class="setting-desc">{{ t('settings.module.debug.desc') }}</p>
           </div>
         </div>
         <el-switch v-model="debugMode" class="setting-control-switch" @change="onDebugChange" />
@@ -72,7 +72,7 @@
     </div>
 
     <div class="settings-section glass-effect">
-      <h2 class="section-title">工具</h2>
+      <h2 class="section-title">{{ t('settings.tools.title') }}</h2>
 
       <div class="setting-item setting-item-horizontal">
         <div class="setting-info">
@@ -80,18 +80,20 @@
             <FileUp :size="24" />
           </div>
           <div class="setting-text">
-            <h3 class="setting-name">配置转换</h3>
-            <p class="setting-desc">将 system.prop 转换为机型模板</p>
+            <h3 class="setting-name">{{ t('settings.tools.convert.label') }}</h3>
+            <p class="setting-desc">{{ t('settings.tools.convert.desc') }}</p>
           </div>
         </div>
-        <el-button type="primary" @click="showInputDialog">开始转换</el-button>
+        <el-button type="primary" @click="showInputDialog">{{
+          t('settings.tools.convert.btn')
+        }}</el-button>
       </div>
     </div>
 
     <!-- 转换路径输入对话框 -->
     <el-dialog
       v-model="inputDialogVisible"
-      title="配置转换"
+      :title="t('settings.dialog.convert.title')"
       width="90%"
       :close-on-click-modal="false"
       :append-to-body="true"
@@ -99,19 +101,19 @@
       modal-class="template-dialog-modal"
     >
       <el-form label-position="top">
-        <el-form-item label="system.prop 文件路径">
+        <el-form-item :label="t('settings.dialog.convert.path_label')">
           <el-input
             v-model="convertPath"
-            placeholder="请输入 system.prop 文件的绝对路径"
+            :placeholder="t('settings.dialog.convert.path_placeholder')"
             @keyup.enter="startConversion"
           />
-          <div class="form-tip">默认路径: /data/adb/device_faker/config/system.prop</div>
+          <div class="form-tip">{{ t('settings.dialog.convert.default_path_tip') }}</div>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="inputDialogVisible = false">取消</el-button>
+        <el-button @click="inputDialogVisible = false">{{ t('common.cancel') }}</el-button>
         <el-button type="primary" :loading="converting" @click="startConversion">
-          开始转换
+          {{ t('settings.dialog.convert.btn_start') }}
         </el-button>
       </template>
     </el-dialog>
@@ -119,7 +121,7 @@
     <!-- 转换结果对话框 -->
     <el-dialog
       v-model="convertDialogVisible"
-      title="转换结果"
+      :title="t('settings.dialog.result.title')"
       width="90%"
       :close-on-click-modal="false"
       :append-to-body="true"
@@ -127,10 +129,13 @@
       modal-class="template-dialog-modal"
     >
       <el-form label-width="100px" label-position="top">
-        <el-form-item label="模板名称">
-          <el-input v-model="convertedTemplateName" placeholder="请输入模板名称" />
+        <el-form-item :label="t('settings.dialog.result.template_name_label')">
+          <el-input
+            v-model="convertedTemplateName"
+            :placeholder="t('settings.dialog.result.template_name_placeholder')"
+          />
         </el-form-item>
-        <el-form-item label="预览内容">
+        <el-form-item :label="t('settings.dialog.result.preview_label')">
           <el-input
             v-model="convertedContent"
             type="textarea"
@@ -141,8 +146,10 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="convertDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveConvertedTemplate">保存为模板</el-button>
+        <el-button @click="convertDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="saveConvertedTemplate">{{
+          t('settings.dialog.result.btn_save')
+        }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -156,10 +163,12 @@ import { useConfigStore } from '../stores/config'
 import { useSettingsStore } from '../stores/settings'
 import { writeFile, execCommand, readFile } from '../utils/ksu'
 import { parse as parseToml } from 'smol-toml'
+import { useI18n } from '../utils/i18n'
 import type { Template } from '../types'
 
 const configStore = useConfigStore()
 const settingsStore = useSettingsStore()
+const { t } = useI18n()
 
 const currentTheme = ref(settingsStore.theme)
 const currentLanguage = ref(settingsStore.language)
@@ -180,16 +189,15 @@ function onThemeChange(value: string) {
 
 function onLanguageChange(value: string) {
   settingsStore.setLanguage(value as 'system' | 'zh' | 'en')
-  ElMessage.info('语言切换功能待实现')
 }
 
 async function onModeChange(value: string) {
   configStore.config.default_mode = value as 'lite' | 'full'
   try {
     await configStore.saveConfig()
-    ElMessage.success('默认模式已更新')
+    ElMessage.success(t('settings.messages.default_mode_updated'))
   } catch {
-    ElMessage.error('保存失败')
+    ElMessage.error(t('settings.messages.save_failed'))
   }
 }
 
@@ -197,9 +205,11 @@ async function onDebugChange(value: boolean) {
   configStore.config.debug = value
   try {
     await configStore.saveConfig()
-    ElMessage.success(value ? '调试模式已启用' : '调试模式已关闭')
+    ElMessage.success(
+      value ? t('settings.messages.debug_enabled') : t('settings.messages.debug_disabled')
+    )
   } catch {
-    ElMessage.error('保存失败')
+    ElMessage.error(t('settings.messages.save_failed'))
   }
 }
 
@@ -209,7 +219,7 @@ function showInputDialog() {
 
 async function startConversion() {
   if (!convertPath.value) {
-    ElMessage.warning('请输入文件路径')
+    ElMessage.warning(t('settings.messages.input_path'))
     return
   }
 
@@ -217,7 +227,7 @@ async function startConversion() {
   try {
     const content = await readFile(convertPath.value)
     if (!content) {
-      ElMessage.error('读取文件失败或文件为空')
+      ElMessage.error(t('settings.messages.read_failed'))
       return
     }
 
@@ -308,7 +318,9 @@ async function startConversion() {
     // Cleanup
     await execCommand(`rm ${tempInputPath} ${tempOutputPath}`)
   } catch (err) {
-    ElMessage.error(`转换失败: ${err instanceof Error ? err.message : String(err)}`)
+    ElMessage.error(
+      `${t('settings.messages.convert_failed')}: ${err instanceof Error ? err.message : String(err)}`
+    )
     console.error(err)
   } finally {
     converting.value = false
@@ -317,7 +329,7 @@ async function startConversion() {
 
 async function saveConvertedTemplate() {
   if (!convertedTemplateName.value) {
-    ElMessage.warning('请输入模板名称')
+    ElMessage.warning(t('settings.dialog.result.template_name_placeholder'))
     return
   }
   if (!convertedTemplate.value) return
@@ -325,10 +337,12 @@ async function saveConvertedTemplate() {
   try {
     configStore.setTemplate(convertedTemplateName.value, convertedTemplate.value)
     await configStore.saveConfig()
-    ElMessage.success('模板已保存')
+    ElMessage.success(t('settings.messages.template_saved'))
     convertDialogVisible.value = false
   } catch (err) {
-    ElMessage.error(`保存失败: ${err instanceof Error ? err.message : String(err)}`)
+    ElMessage.error(
+      `${t('settings.messages.save_failed')}: ${err instanceof Error ? err.message : String(err)}`
+    )
   }
 }
 

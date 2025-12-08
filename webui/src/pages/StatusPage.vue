@@ -1,7 +1,7 @@
 <template>
   <div class="status-page">
     <div class="status-card glass-effect">
-      <h2 class="card-title">模块状态</h2>
+      <h2 class="card-title">{{ t('status.items.module_status') }}</h2>
 
       <div class="status-grid">
         <div class="status-item">
@@ -9,7 +9,7 @@
             <Shield :size="32" />
           </div>
           <div class="status-info">
-            <span class="status-label">模块版本</span>
+            <span class="status-label">{{ t('status.items.module_version') }}</span>
             <span class="status-value">{{ moduleVersion }}</span>
           </div>
         </div>
@@ -19,7 +19,7 @@
             <Smartphone :size="32" />
           </div>
           <div class="status-info">
-            <span class="status-label">伪装应用数量</span>
+            <span class="status-label">{{ t('status.items.impersonated_apps_count') }}</span>
             <span class="status-value">{{ deviceFakerCount }}</span>
           </div>
         </div>
@@ -29,7 +29,7 @@
             <FileText :size="32" />
           </div>
           <div class="status-info">
-            <span class="status-label">机型模板数量</span>
+            <span class="status-label">{{ t('status.items.templates_count') }}</span>
             <span class="status-value">{{ templateCount }}</span>
           </div>
         </div>
@@ -39,7 +39,7 @@
             <Settings :size="32" />
           </div>
           <div class="status-info">
-            <span class="status-label">工作模式</span>
+            <span class="status-label">{{ t('status.items.work_mode') }}</span>
             <span class="status-value">{{ workMode }}</span>
           </div>
         </div>
@@ -52,8 +52,10 @@
 import { computed, onActivated } from 'vue'
 import { Shield, Smartphone, FileText, Settings } from 'lucide-vue-next'
 import { useConfigStore } from '../stores/config'
+import { useI18n } from '../utils/i18n'
 
 const configStore = useConfigStore()
+const { t } = useI18n()
 
 // 直接使用 store 中的 computed 属性，避免重复计算
 const moduleVersion = computed(() => configStore.moduleVersion)
@@ -61,7 +63,7 @@ const deviceFakerCount = computed(() => configStore.deviceFakerCount)
 const templateCount = computed(() => configStore.templateCount)
 const workMode = computed(() => {
   const mode = configStore.config.default_mode || 'lite'
-  return mode === 'lite' ? '轻量模式' : '完整模式'
+  return mode === 'lite' ? t('status.mode.lite') : t('status.mode.full')
 })
 
 async function handleToggleWorkMode() {

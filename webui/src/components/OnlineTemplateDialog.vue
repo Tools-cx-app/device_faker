@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="在线模板库"
+    :title="t('templates.online.title')"
     width="90%"
     :close-on-click-modal="false"
     :append-to-body="true"
@@ -14,12 +14,12 @@
       <!-- 分类标签 -->
       <div class="category-tabs">
         <button
-          v-for="(label, key) in TEMPLATE_CATEGORIES"
+          v-for="(_, key) in TEMPLATE_CATEGORIES"
           :key="key"
           :class="['category-tab', { active: selectedCategory === key }]"
           @click="selectedCategory = key as TemplateCategory"
         >
-          {{ label }}
+          {{ t(`templates.categories.${key}`) }}
         </button>
       </div>
 
@@ -28,7 +28,7 @@
         <el-icon class="is-loading">
           <Loading />
         </el-icon>
-        <p>正在加载在线模板...</p>
+        <p>{{ t('templates.online.loading') }}</p>
       </div>
 
       <!-- 错误状态 -->
@@ -37,7 +37,7 @@
           <CircleClose />
         </el-icon>
         <p>{{ error }}</p>
-        <el-button @click="loadTemplates">重试</el-button>
+        <el-button @click="loadTemplates">{{ t('templates.online.retry') }}</el-button>
       </div>
 
       <!-- 模板列表 -->
@@ -49,20 +49,22 @@
         >
           <div class="template-header">
             <h4 class="template-title">{{ template.displayName }}</h4>
-            <span class="template-category">{{ TEMPLATE_CATEGORIES[template.category] }}</span>
+            <span class="template-category">{{
+              t('templates.categories.' + template.category)
+            }}</span>
           </div>
 
           <div v-if="template.template" class="template-info">
             <p class="info-line">
-              <span class="label">品牌:</span>
+              <span class="label">{{ t('templates.online.brand') }}:</span>
               <span class="value">{{ template.template.brand }}</span>
             </p>
             <p class="info-line">
-              <span class="label">型号:</span>
+              <span class="label">{{ t('templates.online.model') }}:</span>
               <span class="value">{{ template.template.model }}</span>
             </p>
             <p v-if="template.template.marketname" class="info-line">
-              <span class="label">市场名:</span>
+              <span class="label">{{ t('templates.online.market_name') }}:</span>
               <span class="value">{{ template.template.marketname }}</span>
             </p>
           </div>
@@ -74,20 +76,26 @@
               :loading="importingTemplates.has(template.path)"
               @click="importTemplate(template)"
             >
-              {{ importingTemplates.has(template.path) ? '导入中...' : '导入' }}
+              {{
+                importingTemplates.has(template.path)
+                  ? t('templates.online.importing')
+                  : t('templates.online.import')
+              }}
             </el-button>
           </div>
         </div>
 
         <div v-if="filteredTemplates.length === 0" class="empty-state">
-          <p>该分类暂无模板</p>
+          <p>{{ t('templates.online.empty_category') }}</p>
         </div>
       </div>
     </div>
 
     <template #footer>
-      <el-button @click="visible = false">关闭</el-button>
-      <el-button type="primary" @click="loadTemplates">刷新列表</el-button>
+      <el-button @click="visible = false">{{ t('templates.online.close') }}</el-button>
+      <el-button type="primary" @click="loadTemplates">{{
+        t('templates.online.refresh')
+      }}</el-button>
     </template>
   </el-dialog>
 </template>
@@ -105,6 +113,7 @@ import {
   type TemplateCategory,
 } from '../utils/onlineTemplates'
 import { useConfigStore } from '../stores/config'
+import { useI18n } from '../utils/i18n'
 
 const props = defineProps<{
   modelValue: boolean
@@ -115,6 +124,7 @@ const emit = defineEmits<{
 }>()
 
 const configStore = useConfigStore()
+const { t } = useI18n()
 
 const visible = computed({
   get: () => props.modelValue,
@@ -137,23 +147,23 @@ async function loadTemplates() {
   loading.value = true
   error.value = null
 
-  toast('开始加载在线模板...')
+  toast(t('templates.online.toasts.start_loading'))
 
   try {
-    toast('正在获取模板列表...')
+    toast(t('templates.online.toasts.fetching_list'))
     const onlineTemplates = await fetchOnlineTemplates()
 
-    toast(`获取到 ${onlineTemplates.length} 个模板`)
+    toast(t('templates.online.toasts.got_templates', { count: onlineTemplates.length }))
 
     if (onlineTemplates.length === 0) {
-      error.value = '未找到任何模板，请检查网络连接或稍后重试'
-      toast('未找到任何模板，可能是网络问题或 API 限流')
+      error.value = t('templates.online.errors.no_templates')
+      toast(t('templates.online.toasts.no_templates_toast'))
       return
     }
 
     // 先显示模板列表（不等待下载）
     templates.value = onlineTemplates
-    toast('模板列表已加载，正在后台下载详细内容...')
+    toast(t('templates.online.toasts.list_loaded'))
 
     // 后台异步下载模板内容
     let successCount = 0
@@ -175,15 +185,15 @@ async function loadTemplates() {
       })
     ).then(() => {
       if (successCount > 0) {
-        toast(`成功加载 ${successCount} 个模板内容`)
+        toast(t('templates.online.toasts.content_loaded', { count: successCount }))
       }
       if (failCount > 0) {
-        toast(`${failCount} 个模板内容加载失败`)
+        toast(t('templates.online.toasts.content_failed', { count: failCount }))
       }
     })
   } catch (e) {
-    error.value = e instanceof Error ? e.message : '加载失败'
-    toast(`加载失败: ${error.value}`)
+    error.value = e instanceof Error ? e.message : t('templates.online.errors.load_failed')
+    toast(t('templates.online.toasts.load_failed', { error: error.value }))
   } finally {
     loading.value = false
   }
@@ -192,7 +202,7 @@ async function loadTemplates() {
 // 导入模板
 async function importTemplate(onlineTemplate: OnlineTemplate) {
   if (!onlineTemplate.template) {
-    ElMessage.error('模板内容为空')
+    ElMessage.error(t('templates.online.errors.empty_content'))
     return
   }
 
@@ -205,21 +215,25 @@ async function importTemplate(onlineTemplate: OnlineTemplate) {
     // 检查是否已存在
     const existingTemplates = configStore.getTemplates()
     if (existingTemplates[templateName]) {
-      await ElMessageBox.confirm(`模板 "${templateName}" 已存在，是否覆盖？`, '确认导入', {
-        confirmButtonText: '覆盖',
-        cancelButtonText: '取消',
-        type: 'warning',
-      })
+      await ElMessageBox.confirm(
+        t('templates.online.messages.exists_confirm', { name: templateName }),
+        t('templates.online.messages.exists_title'),
+        {
+          confirmButtonText: t('templates.online.messages.overwrite'),
+          cancelButtonText: t('common.cancel'),
+          type: 'warning',
+        }
+      )
     }
 
     // 保存模板
     configStore.setTemplate(templateName, onlineTemplate.template)
     await configStore.saveConfig()
 
-    ElMessage.success(`模板 "${templateName}" 导入成功`)
+    ElMessage.success(t('templates.online.messages.import_success', { name: templateName }))
   } catch (e) {
     if (e !== 'cancel') {
-      ElMessage.error('导入失败')
+      ElMessage.error(t('templates.online.errors.import_failed'))
     }
   } finally {
     importingTemplates.value.delete(onlineTemplate.path)

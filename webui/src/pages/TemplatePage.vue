@@ -1,15 +1,15 @@
 <template>
   <div class="template-page">
     <div class="page-header">
-      <h2 class="page-title">机型模板</h2>
-      <div class="header-actions">
+      <h2 class="page-title">{{ t('templates.title') }}</h2>
+      <div class="header-actions" :class="{ 'vertical-layout': locale === 'en' }">
         <button class="add-btn secondary" @click="showOnlineDialog">
           <Download :size="20" />
-          在线模板
+          {{ t('templates.actions.online') }}
         </button>
         <button class="add-btn" @click="showAddDialog">
           <Plus :size="20" />
-          新建模板
+          {{ t('templates.actions.new') }}
         </button>
       </div>
     </div>
@@ -33,41 +33,43 @@
 
         <div class="template-details">
           <div class="detail-item">
-            <span class="detail-label">Manufacturer:</span>
+            <span class="detail-label">{{ t('templates.fields.manufacturer') }}:</span>
             <span class="detail-value">{{ template.manufacturer }}</span>
           </div>
           <div class="detail-item">
-            <span class="detail-label">Device:</span>
+            <span class="detail-label">{{ t('templates.fields.device') }}:</span>
             <span class="detail-value">{{ template.device }}</span>
           </div>
           <div class="detail-item">
-            <span class="detail-label">Fingerprint:</span>
+            <span class="detail-label">{{ t('templates.fields.fingerprint') }}:</span>
             <span class="detail-value fingerprint">{{ template.fingerprint }}</span>
           </div>
           <div v-if="template.mode" class="detail-item">
-            <span class="detail-label">模式:</span>
+            <span class="detail-label">{{ t('templates.labels.mode') }}:</span>
             <span class="detail-value">{{
-              template.mode === 'lite' ? 'lite (轻量)' : 'full (完整)'
+              template.mode === 'lite' ? t('templates.values.lite') : t('templates.values.full')
             }}</span>
           </div>
           <div v-if="template.packages && template.packages.length > 0" class="detail-item">
-            <span class="detail-label">应用包名:</span>
-            <span class="detail-value">{{ template.packages.length }} 个</span>
+            <span class="detail-label">{{ t('templates.labels.packages') }}:</span>
+            <span class="detail-value"
+              >{{ template.packages.length }} {{ t('templates.labels.count_suffix') }}</span
+            >
           </div>
         </div>
       </div>
 
       <div v-if="Object.keys(templates).length === 0" class="empty-state">
         <FileText :size="64" class="empty-icon" />
-        <p class="empty-text">暂无机型模板</p>
-        <p class="empty-hint">点击上方按钮创建新模板</p>
+        <p class="empty-text">{{ t('templates.empty.title') }}</p>
+        <p class="empty-hint">{{ t('templates.empty.hint') }}</p>
       </div>
     </div>
 
     <!-- 编辑对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="isEditing ? '编辑模板' : '新建模板'"
+      :title="isEditing ? t('templates.dialog.edit_title') : t('templates.dialog.new_title')"
       width="90%"
       :close-on-click-modal="false"
       :append-to-body="true"
@@ -77,43 +79,43 @@
       modal-class="template-dialog-modal"
     >
       <el-form :model="formData" label-width="120px" label-position="top">
-        <el-form-item label="模板名称">
+        <el-form-item :label="t('templates.fields.name')">
           <el-input
             v-model="formData.name"
             :disabled="isEditing"
-            placeholder="例如：redmagic_9_pro"
+            :placeholder="t('templates.placeholders.name')"
           />
         </el-form-item>
 
-        <el-form-item label="Manufacturer">
+        <el-form-item :label="t('templates.fields.manufacturer')">
           <el-input v-model="formData.manufacturer" placeholder="例如：ZTE" />
         </el-form-item>
 
-        <el-form-item label="Brand">
+        <el-form-item :label="t('templates.fields.brand')">
           <el-input v-model="formData.brand" placeholder="例如：nubia" />
         </el-form-item>
 
-        <el-form-item label="Model">
+        <el-form-item :label="t('templates.fields.model')">
           <el-input v-model="formData.model" placeholder="例如：25010PN30C，NX769J" />
         </el-form-item>
 
-        <el-form-item label="Device">
+        <el-form-item :label="t('templates.fields.device')">
           <el-input v-model="formData.device" placeholder="例如：xuanyuan，NX769J" />
         </el-form-item>
 
-        <el-form-item label="Product">
+        <el-form-item :label="t('templates.fields.product')">
           <el-input v-model="formData.product" placeholder="例如：xuanyuan，NX769J" />
         </el-form-item>
 
-        <el-form-item label="Name (可选，仅 full 模式)">
+        <el-form-item :label="t('templates.fields.name_field')">
           <el-input v-model="formData.name_field" placeholder="例如：xuanyuan" />
         </el-form-item>
 
-        <el-form-item label="Market Name (可选，仅 full 模式)">
+        <el-form-item :label="t('templates.fields.market_name')">
           <el-input v-model="formData.marketname" placeholder="例如：REDMAGIC 9 Pro" />
         </el-form-item>
 
-        <el-form-item label="Fingerprint">
+        <el-form-item :label="t('templates.fields.fingerprint')">
           <el-input
             v-model="formData.fingerprint"
             type="textarea"
@@ -122,20 +124,24 @@
           />
         </el-form-item>
 
-        <el-form-item label="工作模式 (可选)">
-          <el-select v-model="formData.mode" placeholder="留空使用全局默认模式" clearable>
-            <el-option label="lite - 轻量模式（推荐，隐蔽性好）" value="lite" />
-            <el-option label="full - 完整模式（全面伪装，可能被检测）" value="full" />
+        <el-form-item :label="t('templates.fields.mode')">
+          <el-select
+            v-model="formData.mode"
+            :placeholder="t('templates.placeholders.mode')"
+            clearable
+          >
+            <el-option :label="t('templates.options.mode_lite')" value="lite" />
+            <el-option :label="t('templates.options.mode_full')" value="full" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="应用包名列表 (可选)">
+        <el-form-item :label="t('templates.fields.packages')">
           <div class="package-manager">
             <div class="package-input-wrapper">
               <el-autocomplete
                 v-model="packageInput"
                 :fetch-suggestions="searchPackages"
-                placeholder="输入或搜索应用包名"
+                :placeholder="t('templates.placeholders.packages')"
                 style="width: 100%"
                 clearable
                 @keyup.enter="addPackage"
@@ -149,9 +155,9 @@
                   </div>
                 </template>
               </el-autocomplete>
-              <el-button type="primary" :disabled="!packageInput" @click="addPackage"
-                >添加</el-button
-              >
+              <el-button type="primary" :disabled="!packageInput" @click="addPackage">{{
+                t('templates.actions.add')
+              }}</el-button>
               >
             </div>
 
@@ -166,14 +172,14 @@
                 </el-button>
               </div>
             </div>
-            <div v-else class="package-list-empty">暂无包名，可以输入包名或从已安装应用中选择</div>
+            <div v-else class="package-list-empty">{{ t('templates.empty.packages') }}</div>
           </div>
         </el-form-item>
       </el-form>
 
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveTemplate">保存</el-button>
+        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="saveTemplate">{{ t('common.save') }}</el-button>
       </template>
     </el-dialog>
 
@@ -189,10 +195,12 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useConfigStore } from '../stores/config'
 import { useAppsStore } from '../stores/apps'
 import OnlineTemplateDialog from '../components/OnlineTemplateDialog.vue'
+import { useI18n } from '../utils/i18n'
 import type { Template } from '../types'
 
 const configStore = useConfigStore()
 const appsStore = useAppsStore()
+const { t, locale } = useI18n()
 
 const templates = computed(() => configStore.getTemplates())
 const installedApps = computed(() => appsStore.installedApps)
@@ -285,7 +293,7 @@ function addPackage() {
   }
 
   if (formData.value.packages.includes(pkgName)) {
-    ElMessage.warning('该包名已添加')
+    ElMessage.warning(t('templates.messages.pkg_exists'))
     return
   }
 
@@ -306,7 +314,7 @@ function getAppName(packageName: string): string {
 
 async function saveTemplate() {
   if (!formData.value.name) {
-    ElMessage.error('请输入模板名称')
+    ElMessage.error(t('templates.messages.name_required'))
     return
   }
 
@@ -339,27 +347,31 @@ async function saveTemplate() {
 
   try {
     await configStore.saveConfig()
-    ElMessage.success('模板已保存')
+    ElMessage.success(t('templates.messages.saved'))
     dialogVisible.value = false
   } catch {
-    ElMessage.error('保存失败')
+    ElMessage.error(t('common.failed'))
   }
 }
 
 async function deleteTemplateConfirm(name: string) {
   try {
-    await ElMessageBox.confirm(`确定要删除模板 "${name}" 吗？`, '确认删除', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning',
-      appendTo: 'body',
-      customClass: 'delete-confirm-box',
-      modalClass: 'delete-confirm-modal',
-    })
+    await ElMessageBox.confirm(
+      t('templates.dialog.delete_confirm', { name }),
+      t('templates.dialog.delete_title'),
+      {
+        confirmButtonText: t('common.delete'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning',
+        appendTo: 'body',
+        customClass: 'delete-confirm-box',
+        modalClass: 'delete-confirm-modal',
+      }
+    )
 
     configStore.deleteTemplate(name)
     await configStore.saveConfig()
-    ElMessage.success('模板已删除')
+    ElMessage.success(t('templates.messages.deleted'))
   } catch {
     // 用户取消
   }
@@ -454,21 +466,26 @@ onActivated(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .page-title {
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--text);
-  width: 80px;
-  word-break: break-all;
   line-height: 1.3;
-  text-align: center;
 }
 
 .header-actions {
   display: flex;
   gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.header-actions.vertical-layout {
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .add-btn {
