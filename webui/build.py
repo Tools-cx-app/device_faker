@@ -308,18 +308,6 @@ def main():
             print("机型伪装 WebUI 构建脚本")
             print("=" * 50)
             
-            print("\n=== 环境检查 ===")
-            if not builder.check_node_npm():
-                print("❌ 环境检查失败，请安装 Node.js")
-                sys.exit(1)
-            print("✅ 环境检查通过")
-            
-            print("\n=== 依赖检查 ===")
-            if not builder.install_dependencies():
-                print("❌ 依赖安装失败")
-                sys.exit(1)
-            print("✅ 依赖安装完成")
-            
             print("\n=== 执行构建流程 ===")
             if not builder.build():
                 print("❌ 构建失败")
