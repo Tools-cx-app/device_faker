@@ -1,17 +1,25 @@
 [package]
 name = "device_faker_cli"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2024"
 authors = ["Seyud"]
 
 [dependencies]
-anyhow.workspace = true
+anyhow = { version = "1.0.100", default-features = false }
 argh = "0.1"
 minreq = { version = "2.11", default-features = false, features = ["https-rustls", "json-using-serde"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0", default-features = false }
-toml.workspace = true
+toml = { version = "0.8", default-features = false, features = ["parse"] }
 
 [[bin]]
 name = "device_faker_cli"
 path = "src/main.rs"
+
+[profile.release]
+panic = "abort"
+lto = "fat"
+opt-level = "z"
+strip = true
+codegen-units = 1
+overflow-checks = false

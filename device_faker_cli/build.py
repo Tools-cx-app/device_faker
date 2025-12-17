@@ -88,12 +88,11 @@ def build_android():
 def compress_with_upx():
     print("使用UPX压缩二进制文件...")
     try:
-        # 脚本在 device_faker_cli/ 子目录，向上一级到 workspace root
+        # 独立项目：target 目录位于当前包目录
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        workspace_root = os.path.dirname(script_dir)
         
         binary_name = "device_faker_cli"
-        binary_path = os.path.join(workspace_root, "target", "aarch64-linux-android", "release", binary_name)
+        binary_path = os.path.join(script_dir, "target", "aarch64-linux-android", "release", binary_name)
         
         upx_exe_path = os.path.join("D:/upx", "upx.exe")
         
@@ -110,13 +109,13 @@ def compress_with_upx():
 def copy_binary_to_output():
     print("将构建的二进制文件复制到module文件夹...")
     try:
-        # 脚本在 device_faker_cli/ 子目录，需要向上一级到达 workspace 根目录
+        # 独立项目：target 目录位于当前包目录
         script_dir = os.path.dirname(os.path.abspath(__file__))
         workspace_root = os.path.dirname(script_dir)
         
         binary_name = "device_faker_cli"
         
-        source_path = os.path.join(workspace_root, "target", "aarch64-linux-android", "release", binary_name)
+        source_path = os.path.join(script_dir, "target", "aarch64-linux-android", "release", binary_name)
         output_dir = os.path.join(workspace_root, "module", "bin")
         
         # 检查源文件是否存在

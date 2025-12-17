@@ -76,13 +76,13 @@ def build_android():
 def copy_binary_to_output():
     print("将构建的二进制文件复制到module文件夹...")
     try:
-        # 脚本在 device_faker/ 子目录，需要向上一级到达 workspace 根目录
+        # 独立项目：target 目录位于当前包目录
         script_dir = os.path.dirname(os.path.abspath(__file__))
         workspace_root = os.path.dirname(script_dir)
         
         lib_name = "libzygisk.so"
         
-        source_path = os.path.join(workspace_root, "target", "aarch64-linux-android", "release", lib_name)
+        source_path = os.path.join(script_dir, "target", "aarch64-linux-android", "release", lib_name)
         output_dir = os.path.join(workspace_root, "module", "zygisk")
         
         # 检查源文件是否存在
