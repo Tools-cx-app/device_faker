@@ -19,7 +19,7 @@ A device model spoofing module based on Zygisk that can configure different devi
 - 🛡️ **Safe and Reliable**: Based on Zygisk framework, modular design
 - 📝 **Simple Configuration**: Using TOML format configuration files, easy to edit
 - ⚡ **Performance Optimized**: Only takes effect on configured applications, does not affect other applications
-- 🎭 **Dual Mode**: lite mode (lightweight stealth) / full mode (complete spoofing)
+- 🎭 **Triple Mode**: lite mode (lightweight stealth) / full mode (complete spoofing) / resetprop mode (supports read-only property modification)
 - 🌐 **WebUI Management**: Provides graphical interface for convenient configuration management
 
 ## WebUI Features 🖥️
@@ -30,7 +30,6 @@ Device Faker provides a modern web management interface accessible through the W
 - 📋 **Template Management**: Create, edit and delete device templates, batch apply to multiple package names
 - 📱 **Application Management**: Intuitive view of installed applications and their configuration status
 - 🖋️ **Configuration Editing**: Graphical interface for editing application configuration, supporting template application and custom configuration
-- 🔍 **Search Function**: Quick search for applications or package names
 
 ## Configuration Guide ⚙️
 
