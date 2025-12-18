@@ -14,7 +14,10 @@ export const useAppsStore = defineStore('apps', () => {
     loading.value = true
     error.value = null
     try {
-      installedApps.value = await getInstalledApps()
+      installedApps.value = (await getInstalledApps()).map((app) => ({
+        ...app,
+        installed: app.installed ?? true,
+      }))
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {

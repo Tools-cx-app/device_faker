@@ -33,11 +33,16 @@
       <div class="app-info">
         <h3 class="app-name">{{ app.appName }}</h3>
         <p class="app-package">{{ app.packageName }}</p>
-        <p v-if="isConfigured(app.packageName)" class="app-status configured">
-          <Check :size="14" />
-          {{ t('apps.status.configured') }}
-        </p>
-        <p v-else class="app-status unconfigured">{{ t('apps.status.unconfigured') }}</p>
+        <div class="app-status-group">
+          <p v-if="isConfigured(app.packageName)" class="app-status configured">
+            <Check :size="14" />
+            {{ t('apps.status.configured') }}
+          </p>
+          <p v-else class="app-status unconfigured">{{ t('apps.status.unconfigured') }}</p>
+          <p v-if="!isInstalled(app)" class="app-status not-installed">
+            {{ t('apps.status.not_installed') }}
+          </p>
+        </div>
       </div>
       <div class="app-actions">
         <ChevronRight :size="20" />
@@ -73,6 +78,7 @@ const { appIcons, iconLoaded, onIconLoad, onIconError, setupIconObserver, teardo
   useAppIcons()
 
 const isConfigured = (packageName: string) => configStore.isPackageConfigured(packageName)
+const isInstalled = (app: InstalledApp) => app.installed !== false
 
 const loading = computed(() => props.loading)
 
@@ -191,6 +197,13 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.app-status-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
 .app-status {
   display: inline-flex;
   align-items: center;
@@ -208,6 +221,11 @@ onUnmounted(() => {
 .app-status.unconfigured {
   background: rgba(156, 163, 175, 0.1);
   color: var(--text-secondary);
+}
+
+.app-status.not-installed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
 }
 
 .app-actions {

@@ -3,7 +3,7 @@
     <AppFilters
       v-model:search-query="searchQuery"
       v-model:filter-type="filterType"
-      :total-count="installedApps.length"
+      :total-count="allApps.length"
       :configured-count="configuredCount"
       :unconfigured-count="unconfiguredCount"
     />
@@ -38,14 +38,60 @@ const currentApp = ref<InstalledApp | null>(null)
 const loading = computed(() => appsStore.loading)
 const installedApps = computed(() => appsStore.installedApps)
 
+const configuredApps = computed<InstalledApp[]>(() => {
+  const map = new Map<string, InstalledApp>()
+
+  for (const appConfig of configStore.getApps()) {
+    map.set(appConfig.package, {
+      packageName: appConfig.package,
+      appName: appConfig.package,
+      installed: false,
+    })
+  }
+
+  const templates = configStore.getTemplates()
+  for (const template of Object.values(templates)) {
+    if (!template.packages) continue
+    for (const pkg of template.packages) {
+      if (!map.has(pkg)) {
+        map.set(pkg, {
+          packageName: pkg,
+          appName: pkg,
+          installed: false,
+        })
+      }
+    }
+  }
+
+  return Array.from(map.values())
+})
+
+const allApps = computed<InstalledApp[]>(() => {
+  const seen = new Set<string>()
+  const merged: InstalledApp[] = []
+
+  for (const app of installedApps.value) {
+    merged.push({ ...app, installed: app.installed ?? true })
+    seen.add(app.packageName)
+  }
+
+  for (const app of configuredApps.value) {
+    if (!seen.has(app.packageName)) {
+      merged.push(app)
+    }
+  }
+
+  return merged
+})
+
 const configuredCount = computed(
-  () => installedApps.value.filter((app) => configStore.isPackageConfigured(app.packageName)).length
+  () => allApps.value.filter((app) => configStore.isPackageConfigured(app.packageName)).length
 )
 
-const unconfiguredCount = computed(() => installedApps.value.length - configuredCount.value)
+const unconfiguredCount = computed(() => allApps.value.length - configuredCount.value)
 
 const filteredApps = computed(() => {
-  let apps = installedApps.value
+  let apps = allApps.value
 
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()

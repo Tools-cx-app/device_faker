@@ -50,6 +50,7 @@ export interface InstalledApp {
   icon?: string
   versionName?: string
   versionCode?: number
+  installed?: boolean
 }
 
 // 设置接口

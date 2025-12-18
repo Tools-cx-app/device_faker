@@ -162,6 +162,7 @@ export const messages = {
       status: {
         configured: '已配置',
         unconfigured: '未配置',
+        not_installed: '未安装',
       },
       empty: {
         search: '未找到匹配的应用',
@@ -418,6 +419,7 @@ export const messages = {
       status: {
         configured: 'Configured',
         unconfigured: 'Unconfigured',
+        not_installed: 'Not installed',
       },
       empty: {
         search: 'No matching apps found',

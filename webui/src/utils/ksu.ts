@@ -115,6 +115,7 @@ export async function getInstalledApps() {
           icon: '',
           versionName,
           versionCode,
+          installed: true,
         })
       } catch {
         // 即使获取信息失败，也添加基本信息
@@ -124,6 +125,7 @@ export async function getInstalledApps() {
           icon: '',
           versionName: '',
           versionCode: 0,
+          installed: true,
         })
       }
     }
