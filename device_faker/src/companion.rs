@@ -12,15 +12,17 @@ use zygisk_api::api::{V4, ZygiskApi};
 pub fn spoof_system_props_via_companion(
     api: &mut ZygiskApi<V4>,
     prop_map: &HashMap<String, String>,
+    delete_props: &[String],
     package_name: &str,
 ) -> anyhow::Result<()> {
-    if prop_map.is_empty() {
+    if prop_map.is_empty() && delete_props.is_empty() {
         return Ok(());
     }
 
     let request = CompanionRequest::Apply(ResetpropSessionRequest {
         pid: std::process::id(),
         props: prop_map.clone(),
+        delete_props: delete_props.to_vec(),
     });
 
     let response = send_companion_command(api, &request)?;
@@ -169,15 +171,24 @@ fn write_companion_response(
 fn apply_resetprop_session(
     request: ResetpropSessionRequest,
 ) -> anyhow::Result<HashMap<String, String>> {
-    if request.props.is_empty() {
+    if request.props.is_empty() && request.delete_props.is_empty() {
         return Ok(HashMap::new());
     }
 
     let resetprop_path = find_resetprop_path()
         .ok_or_else(|| anyhow::anyhow!("resetprop binary not found in known locations"))?;
 
-    let mut backups = Vec::with_capacity(request.props.len());
+    let mut backups = Vec::with_capacity(request.props.len() + request.delete_props.len());
+
     for key in request.props.keys() {
+        let original = backup_property(key)?;
+        backups.push(PropBackup {
+            key: key.clone(),
+            original_value: original,
+        });
+    }
+
+    for key in &request.delete_props {
         let original = backup_property(key)?;
         backups.push(PropBackup {
             key: key.clone(),
@@ -192,6 +203,10 @@ fn apply_resetprop_session(
 
     for (key, value) in &request.props {
         apply_resetprop(&resetprop_path, key, value)?;
+    }
+
+    for key in &request.delete_props {
+        resetprop_delete(&resetprop_path, key)?;
     }
 
     spawn_restore_watcher(request.pid, backups, resetprop_path)?;
@@ -233,6 +248,17 @@ fn apply_resetprop(path: &str, key: &str, value: &str) -> anyhow::Result<()> {
         .status()?;
     if !status.success() {
         anyhow::bail!("resetprop failed for {key}");
+    }
+    Ok(())
+}
+
+fn resetprop_delete(path: &str, key: &str) -> anyhow::Result<()> {
+    let status = std::process::Command::new(path)
+        .arg("--delete")
+        .arg(key)
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("resetprop delete failed for {key}");
     }
     Ok(())
 }
@@ -319,6 +345,7 @@ fn find_resetprop_path() -> Option<String> {
 struct ResetpropSessionRequest {
     pid: u32,
     props: HashMap<String, String>,
+    delete_props: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

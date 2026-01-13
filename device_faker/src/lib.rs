@@ -230,7 +230,8 @@ impl MyModule {
         }
 
         let prop_map = Config::build_merged_property_map_for_resetprop(merged);
-        spoof_system_props_via_companion(api, &prop_map, package_name)?;
+        let delete_props = Config::build_delete_props_list(merged);
+        spoof_system_props_via_companion(api, &prop_map, &delete_props, package_name)?;
 
         if debug {
             info!("Resetprop spoofing completed");

@@ -27,6 +27,15 @@ pub struct DeviceTemplate {
     pub fingerprint: Option<String>,
     #[serde(default)]
     pub characteristics: Option<String>,
+    /// Android 版本伪装（如 "15", "14"）
+    #[serde(default)]
+    pub android_version: Option<String>,
+    /// SDK 版本伪装（如 35, 34）
+    #[serde(default)]
+    pub sdk_int: Option<u32>,
+    /// 自定义属性映射表（仅 full/resetprop 模式支持）
+    #[serde(default)]
+    pub custom_props: Option<HashMap<String, String>>,
     /// 是否为匹配的应用强制执行 FORCE_DENYLIST_UNMOUNT（默认继承全局设置）
     #[serde(default)]
     pub force_denylist_unmount: Option<bool>,
@@ -57,6 +66,15 @@ pub struct AppConfig {
     pub fingerprint: Option<String>,
     #[serde(default)]
     pub characteristics: Option<String>,
+    /// Android 版本伪装（如 "15", "14"）
+    #[serde(default)]
+    pub android_version: Option<String>,
+    /// SDK 版本伪装（如 35, 34）
+    #[serde(default)]
+    pub sdk_int: Option<u32>,
+    /// 自定义属性映射表（仅 full/resetprop 模式支持）
+    #[serde(default)]
+    pub custom_props: Option<HashMap<String, String>>,
     /// 是否为该应用强制执行 FORCE_DENYLIST_UNMOUNT（默认继承全局设置）
     #[serde(default)]
     pub force_denylist_unmount: Option<bool>,
@@ -122,6 +140,9 @@ impl Config {
                 product: app.product.clone(),
                 fingerprint: app.fingerprint.clone(),
                 characteristics: app.characteristics.clone(),
+                android_version: app.android_version.clone(),
+                sdk_int: app.sdk_int,
+                custom_props: app.custom_props.clone(),
                 force_denylist_unmount: app
                     .force_denylist_unmount
                     .unwrap_or(self.default_force_denylist_unmount),
@@ -144,6 +165,9 @@ impl Config {
                 product: template.product.clone(),
                 fingerprint: template.fingerprint.clone(),
                 characteristics: template.characteristics.clone(),
+                android_version: template.android_version.clone(),
+                sdk_int: template.sdk_int,
+                custom_props: template.custom_props.clone(),
                 force_denylist_unmount: template
                     .force_denylist_unmount
                     .unwrap_or(self.default_force_denylist_unmount),
@@ -160,6 +184,7 @@ impl Config {
     /// 构建合并配置的系统属性映射
     /// 注意：仅用于 full 模式的 SystemProperties Hook 和 resetprop 模式
     /// 空字符串会被忽略，不会添加到映射中
+    /// __DELETE__ 标记的属性会被记录到 delete_props 中
     pub fn build_merged_property_map(merged: &MergedAppConfig) -> HashMap<String, String> {
         let mut map = HashMap::new();
 
@@ -214,7 +239,108 @@ impl Config {
             );
         }
 
+        // Android 版本伪装属性
+        if let Some(android_version) = &merged.android_version
+            && !android_version.is_empty()
+        {
+            map.insert(
+                "ro.build.version.release".to_string(),
+                android_version.clone(),
+            );
+            map.insert(
+                "ro.system.build.version.release".to_string(),
+                android_version.clone(),
+            );
+            map.insert(
+                "ro.vendor.build.version.release".to_string(),
+                android_version.clone(),
+            );
+            map.insert(
+                "ro.product.build.version.release".to_string(),
+                android_version.clone(),
+            );
+        }
+
+        if let Some(sdk_int) = merged.sdk_int {
+            let sdk_str = sdk_int.to_string();
+            map.insert("ro.build.version.sdk".to_string(), sdk_str.clone());
+            map.insert("ro.system.build.version.sdk".to_string(), sdk_str.clone());
+            map.insert("ro.vendor.build.version.sdk".to_string(), sdk_str.clone());
+            map.insert("ro.product.build.version.sdk".to_string(), sdk_str.clone());
+        }
+
+        // 自定义属性
+        if let Some(custom_props) = &merged.custom_props {
+            for (key, value) in custom_props {
+                if value == "__DELETE__" {
+                    continue;
+                }
+                let final_value = if value == "__EMPTY__" {
+                    "".to_string()
+                } else {
+                    value.clone()
+                };
+                map.insert(key.clone(), final_value);
+            }
+        }
+
         map
+    }
+
+    /// 构建需要删除的属性列表（用于 resetprop 模式）
+    pub fn build_delete_props_list(merged: &MergedAppConfig) -> Vec<String> {
+        let mut delete_props = Vec::new();
+
+        if merged.brand.as_ref().is_some_and(|s| s == "__DELETE__") {
+            delete_props.push("ro.product.brand".to_string());
+        }
+        if merged
+            .manufacturer
+            .as_ref()
+            .is_some_and(|s| s == "__DELETE__")
+        {
+            delete_props.push("ro.product.manufacturer".to_string());
+        }
+        if merged.model.as_ref().is_some_and(|s| s == "__DELETE__") {
+            delete_props.push("ro.product.model".to_string());
+        }
+        if merged.name.as_ref().is_some_and(|s| s == "__DELETE__") {
+            delete_props.push("ro.product.name".to_string());
+        }
+        if merged.device.as_ref().is_some_and(|s| s == "__DELETE__") {
+            delete_props.push("ro.product.device".to_string());
+        }
+        if merged
+            .marketname
+            .as_ref()
+            .is_some_and(|s| s == "__DELETE__")
+        {
+            delete_props.push("ro.product.marketname".to_string());
+        }
+        if merged
+            .fingerprint
+            .as_ref()
+            .is_some_and(|s| s == "__DELETE__")
+        {
+            delete_props.push("ro.build.fingerprint".to_string());
+        }
+        if merged
+            .characteristics
+            .as_ref()
+            .is_some_and(|s| s == "__DELETE__")
+        {
+            delete_props.push("ro.build.characteristics".to_string());
+        }
+
+        if let Some(custom_props) = &merged.custom_props {
+            for (key, value) in custom_props {
+                if value == "__DELETE__" {
+                    delete_props.push(key.clone());
+                }
+            }
+        }
+
+        delete_props
     }
 
     /// 构建用于 resetprop 模式的系统属性映射
@@ -237,6 +363,9 @@ pub struct MergedAppConfig {
     pub product: Option<String>,
     pub fingerprint: Option<String>,
     pub characteristics: Option<String>,
+    pub android_version: Option<String>,
+    pub sdk_int: Option<u32>,
+    pub custom_props: Option<HashMap<String, String>>,
     pub force_denylist_unmount: bool,
     pub mode: String,
 }

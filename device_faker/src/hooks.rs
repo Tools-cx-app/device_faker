@@ -55,6 +55,30 @@ pub fn hook_build_fields(env: &mut JNIEnv, merged_config: &MergedAppConfig) -> a
         set_build_field(env, &build_class, "FINGERPRINT", fingerprint)?;
     }
 
+    hook_version_fields(env, &build_class, merged_config)?;
+
+    Ok(())
+}
+
+fn hook_version_fields(
+    env: &mut JNIEnv,
+    _build_class: &JClass,
+    merged_config: &MergedAppConfig,
+) -> anyhow::Result<()> {
+    let version_class = env
+        .find_class("android/os/Build$VERSION")
+        .context("Failed to find Build.VERSION class")?;
+
+    if let Some(android_version) = &merged_config.android_version
+        && !android_version.is_empty()
+    {
+        set_build_field(env, &version_class, "RELEASE", android_version)?;
+    }
+
+    if let Some(sdk_int) = merged_config.sdk_int {
+        set_build_int_field(env, &version_class, "SDK_INT", sdk_int as i32)?;
+    }
+
     Ok(())
 }
 
@@ -73,6 +97,22 @@ fn set_build_field(
         .with_context(|| format!("Failed to create string for {value}"))?;
 
     env.set_static_field(build_class, field_id, JValue::Object(&new_value))
+        .with_context(|| format!("Failed to set field {field_name}"))?;
+
+    Ok(())
+}
+
+fn set_build_int_field(
+    env: &mut JNIEnv,
+    build_class: &JClass,
+    field_name: &str,
+    value: i32,
+) -> anyhow::Result<()> {
+    let field_id = env
+        .get_static_field_id(build_class, field_name, "I")
+        .with_context(|| format!("Failed to get field ID for {field_name}"))?;
+
+    env.set_static_field(build_class, field_id, JValue::Int(value))
         .with_context(|| format!("Failed to set field {field_name}"))?;
 
     Ok(())
