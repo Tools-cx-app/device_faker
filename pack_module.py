@@ -8,16 +8,27 @@ import os
 import zipfile
 import datetime
 
-def convert_to_lf(file_path):
-    """将文件转换为 LF 换行符"""
+def needs_lf_conversion(file_path):
+    """检查文件是否需要转换为 LF 换行符"""
+    with open(file_path, 'rb') as f:
+        content = f.read()
+    return b'\r\n' in content
+
+def convert_to_lf(file_path, rel_path):
+    """将文件转换为 LF 换行符（仅当需要时）"""
+    if not needs_lf_conversion(file_path):
+        print(f"  跳过 (已是 LF): {rel_path}")
+        return
+    
     with open(file_path, 'rb') as f:
         content = f.read()
     
-    # 将 CRLF 转换为 LF
     content = content.replace(b'\r\n', b'\n')
     
     with open(file_path, 'wb') as f:
         f.write(content)
+    
+    print(f"  转换: {rel_path}")
 
 def create_magisk_module_zip():
     """创建 Magisk 模块 ZIP 包"""
@@ -34,8 +45,8 @@ def create_magisk_module_zip():
         for file in files:
             if file.endswith('.sh'):
                 file_path = os.path.join(root, file)
-                convert_to_lf(file_path)
-                print(f"  转换: {os.path.relpath(file_path, module_dir)}")
+                rel_path = os.path.relpath(file_path, module_dir)
+                convert_to_lf(file_path, rel_path)
     
     # 生成带时间戳的 ZIP 文件名
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
