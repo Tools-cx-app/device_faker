@@ -95,6 +95,19 @@
             :placeholder="t('templates.placeholders.fingerprint')"
           />
         </el-form-item>
+        <el-form-item :label="t('templates.fields.android_version')">
+          <el-input
+            v-model="customFormData.android_version"
+            :placeholder="t('templates.placeholders.android_version')"
+          />
+        </el-form-item>
+        <el-form-item :label="t('templates.fields.sdk_int')">
+          <el-input
+            v-model="customFormData.sdk_int"
+            type="number"
+            :placeholder="t('templates.placeholders.sdk_int')"
+          />
+        </el-form-item>
         <el-form-item :label="t('templates.fields.mode')">
           <el-select
             v-model="customFormData.mode"
@@ -209,6 +222,8 @@ const customFormData = ref({
   name: '',
   marketname: '',
   fingerprint: '',
+  android_version: '',
+  sdk_int: '',
   characteristics: '',
   force_denylist_unmount: undefined as boolean | undefined,
   mode: undefined as 'lite' | 'full' | 'resetprop' | undefined,
@@ -308,6 +323,8 @@ function syncFromExistingConfig() {
         name: existingConfig.name || '',
         marketname: existingConfig.marketname || '',
         fingerprint: existingConfig.fingerprint || '',
+        android_version: existingConfig.android_version || '',
+        sdk_int: existingConfig.sdk_int ? String(existingConfig.sdk_int) : '',
         characteristics: existingConfig.characteristics || '',
         force_denylist_unmount: existingConfig.force_denylist_unmount,
         mode: existingConfig.mode as 'lite' | 'full' | 'resetprop' | undefined,
@@ -332,6 +349,8 @@ function syncFromExistingConfig() {
       name: '',
       marketname: '',
       fingerprint: '',
+      android_version: '',
+      sdk_int: '',
       characteristics: '',
       force_denylist_unmount: undefined,
       mode: undefined,
@@ -391,6 +410,8 @@ async function saveAppConfig() {
       name: customFormData.value.name,
       marketname: customFormData.value.marketname,
       fingerprint: customFormData.value.fingerprint,
+      android_version: customFormData.value.android_version,
+      sdk_int: customFormData.value.sdk_int ? Number(customFormData.value.sdk_int) : undefined,
       characteristics: customFormData.value.characteristics,
       force_denylist_unmount: customFormData.value.force_denylist_unmount,
       mode: customFormData.value.mode,

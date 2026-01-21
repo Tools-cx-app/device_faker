@@ -9,6 +9,8 @@ export interface DeviceInfo {
   marketname?: string
   fingerprint?: string
   characteristics?: string
+  android_version?: string
+  sdk_int?: number
   force_denylist_unmount?: boolean
 }
 

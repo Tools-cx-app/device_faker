@@ -65,6 +65,21 @@
         />
       </el-form-item>
 
+      <el-form-item :label="t('templates.fields.android_version')">
+        <el-input
+          v-model="formData.android_version"
+          :placeholder="t('templates.placeholders.android_version')"
+        />
+      </el-form-item>
+
+      <el-form-item :label="t('templates.fields.sdk_int')">
+        <el-input
+          v-model="formData.sdk_int"
+          type="number"
+          :placeholder="t('templates.placeholders.sdk_int')"
+        />
+      </el-form-item>
+
       <el-form-item :label="t('templates.fields.mode')">
         <el-select
           v-model="formData.mode"
@@ -185,6 +200,8 @@ const formData = ref({
   name_field: '',
   marketname: '',
   fingerprint: '',
+  android_version: '',
+  sdk_int: '',
   characteristics: '',
   force_denylist_unmount: undefined as boolean | undefined,
   mode: '',
@@ -203,6 +220,8 @@ function resetForm() {
     name_field: '',
     marketname: '',
     fingerprint: '',
+    android_version: '',
+    sdk_int: '',
     characteristics: '',
     force_denylist_unmount: undefined,
     mode: '',
@@ -227,6 +246,8 @@ function fillFormFromTemplate() {
     name_field: props.templateData.name || '',
     marketname: props.templateData.marketname || '',
     fingerprint: props.templateData.fingerprint || '',
+    android_version: props.templateData.android_version || '',
+    sdk_int: props.templateData.sdk_int ? String(props.templateData.sdk_int) : '',
     characteristics: props.templateData.characteristics || '',
     force_denylist_unmount: props.templateData.force_denylist_unmount,
     mode: props.templateData.mode || '',
@@ -288,6 +309,14 @@ async function saveTemplate() {
     device: formData.value.device,
     product: formData.value.product,
     fingerprint: formData.value.fingerprint,
+  }
+
+  if (formData.value.android_version) {
+    template.android_version = formData.value.android_version
+  }
+
+  if (formData.value.sdk_int) {
+    template.sdk_int = Number(formData.value.sdk_int)
   }
 
   if (formData.value.name_field) {
