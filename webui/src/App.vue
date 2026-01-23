@@ -144,16 +144,11 @@ watchEffect(() => {
     const glassElements = document.querySelectorAll('.glass-effect')
     glassElements.forEach((element) => {
       const el = element as HTMLElement
-      // 使用强制重绘技巧
-      el.style.willChange = 'transform, opacity, backdrop-filter'
-      el.style.transform = 'translateZ(0) scale(1.001)'
-      setTimeout(() => {
-        el.style.transform = 'translateZ(0)'
-        setTimeout(() => {
-          el.style.willChange = ''
-          el.style.transform = ''
-        }, 50)
-      }, 0)
+      // 移除will-change以避免触摸事件问题，Android WebView需要清晰的触摸事件流
+      el.style.backdropFilter = 'none'
+      void el.offsetWidth // 强制重排
+      // 恢复毛玻璃效果
+      el.style.backdropFilter = ''
     })
 
     // 触发所有样式重新计算
@@ -307,6 +302,8 @@ onUnmounted(() => {
   /* 优化滚动性能 */
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
+  /* 确保Android WebView正确处理触摸滚动 */
+  touch-action: pan-y;
 }
 
 .bottom-nav {
