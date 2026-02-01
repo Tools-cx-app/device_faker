@@ -10,6 +10,14 @@ on:
       - 'module/**'
       - 'webui/**'
       - '.github/workflows/build.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - "Cargo.*"
+      - 'device_faker_cli/**'
+      - 'module/**'
+      - 'webui/**'
+      - '.github/workflows/build.yml'
 
 jobs:
   build:
