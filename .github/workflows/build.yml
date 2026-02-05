@@ -66,3 +66,29 @@ jobs:
         with:
           name: device_faker
           path: module/
+      
+      - name: Upload
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          MESSAGE_THREAD_ID: ${{ secrets.MESSAGE_THREAD_ID }}
+          COMMIT_MESSAGE: |+
+            🚀 **Device_Faker Build \#${{ github.run_number }}**
+            📋 **Build Info:**
+            [Commit](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+            📝 **Commit Message:**
+            ```
+            ${{ format('{0}', github.event.head_commit.message) }}
+            ```
+            by `${{ github.event.head_commit.author.name }}`
+            
+            🔗 [View Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          ESCAPED_MESSAGE=$(echo "${COMMIT_MESSAGE}" | jq -R -s '.')
+          
+          curl -v "https://api.telegram.org/bot${BOT_TOKEN}/sendMediaGroup" \
+               -F "chat_id=${CHAT_ID}" \
+               -F "message_thread_id=${MESSAGE_THREAD_ID}" \
+               -F "media=[{\"type\":\"document\",\"media\":\"attach://file\",\"parse_mode\":\"MarkdownV2\",\"caption\":${ESCAPED_MESSAGE}}]" \
+               -F "file=@output/device_faker-(release).zip"
