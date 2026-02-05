@@ -68,6 +68,7 @@ jobs:
           path: module/
       
       - name: Upload
+        if: github.event_name == 'push'
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
