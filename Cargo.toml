@@ -1,5 +1,6 @@
 [workspace]
-members = ["device_faker_cli", "xtask"]
+members = ["xtask"]
+exclude = ["device_faker_cli"]
 
 [package]
 name = "device_faker"
@@ -31,3 +32,5 @@ opt-level = 3
 strip = true
 codegen-units = 1
 overflow-checks = false
+
+
