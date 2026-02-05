@@ -114,8 +114,7 @@ fn build(release: bool, verbose: bool) -> Result<()> {
     }
 
     cargo.spawn()?.wait()?;
-    cargo.args(&["-p", "device_faker_cli"]);
-    cargo.spawn()?.wait()?;
+    cargo.current_dir("device_faker_cli/").spawn()?.wait()?;
 
     let module_dir = module_dir();
     dir::copy(
@@ -248,7 +247,7 @@ fn bin_path(release: bool) -> PathBuf {
 }
 
 fn cli_bin_path(release: bool) -> PathBuf {
-    Path::new("target")
+    Path::new("device_faker_cli/target")
         .join("aarch64-linux-android")
         .join(if release { "release" } else { "debug" })
         .join("device_faker_cli")
