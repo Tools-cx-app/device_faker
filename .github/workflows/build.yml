@@ -88,12 +88,33 @@ jobs:
             🔗 [View Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
         run: |
           sudo apt-get update && sudo apt-get install -y jq
-          ESCAPED_MARKDOWN=$(printf '%s' "${COMMIT_MESSAGE}" | \
-            sed -e 's/\\/\\\\/g' -e 's/\([_*\[\]()~`>#+\-=|{}.!]\)/\\\1/g')
-          ESCAPED_MESSAGE=$(printf '%s' "${ESCAPED_MARKDOWN}" | jq -R -s '.')
-          
+          MEDIA_JSON=$(python3 - <<'PY'
+          import json
+          import os
+          import re
+
+          text = os.environ.get("COMMIT_MESSAGE", "")
+
+          def escape_markdown_v2(value: str) -> str:
+              value = value.replace("\\", "\\\\")
+              return re.sub(r"([_*\[\]()~`>#+\-=|{}.!])", r"\\\1", value)
+
+          escaped = escape_markdown_v2(text)
+          media = [
+              {
+                  "type": "document",
+                  "media": "attach://file",
+                  "parse_mode": "MarkdownV2",
+                  "caption": escaped,
+              }
+          ]
+
+          print(json.dumps(media))
+          PY
+          )
+
           curl -v "https://api.telegram.org/bot${BOT_TOKEN}/sendMediaGroup" \
             -F "chat_id=${CHAT_ID}" \
             -F "message_thread_id=${MESSAGE_THREAD_ID}" \
-            -F "media=[{\"type\":\"document\",\"media\":\"attach://file\",\"parse_mode\":\"MarkdownV2\",\"caption\":${ESCAPED_MESSAGE}}]" \
+            -F "media=${MEDIA_JSON}" \
             -F "file=@output/device_faker-(release).zip"
