@@ -181,7 +181,7 @@ export const messages = {
       },
       dialog: {
         config_title: '配置 {name}',
-        mode_template: '应用模板',
+        mode_template: '模板配置',
         mode_custom: '自定义配置',
         mode_remove: '移除配置',
         select_template_placeholder: '选择机型模板',
@@ -189,10 +189,14 @@ export const messages = {
         search_no_result: '无匹配模板，请尝试其他关键词',
         no_templates: '暂无模板，请先创建或导入',
         remove_hint: '确定要移除该应用的伪装配置吗？',
+        remove_custom_config: '移除自定义配置',
+        remove_template_config: '移除模板配置',
       },
       messages: {
         select_template: '请选择模板',
         saved: '配置已保存',
+        custom_config_removed: '自定义配置已移除',
+        template_config_removed: '模板配置已移除',
       },
     },
     settings: {
@@ -439,7 +443,7 @@ export const messages = {
       },
       dialog: {
         config_title: 'Configure {name}',
-        mode_template: 'Apply Template',
+        mode_template: 'Template Config',
         mode_custom: 'Custom Config',
         mode_remove: 'Remove Config',
         select_template_placeholder: 'Select Device Template',
@@ -447,10 +451,14 @@ export const messages = {
         search_no_result: 'No matching templates, try another keyword',
         no_templates: 'No templates yet, create or import first',
         remove_hint: 'Are you sure to remove the spoofing config for this app?',
+        remove_custom_config: 'Remove Custom Config',
+        remove_template_config: 'Remove Template Config',
       },
       messages: {
         select_template: 'Please select a template',
         saved: 'Config saved',
+        custom_config_removed: 'Custom config removed',
+        template_config_removed: 'Template config removed',
       },
     },
     settings: {

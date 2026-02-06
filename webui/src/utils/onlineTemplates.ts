@@ -1,7 +1,6 @@
 import { parse as parseToml } from 'smol-toml'
 import type { Template } from '../types'
 import { execCommand } from './ksu'
-import { useSettingsStore } from '../stores/settings'
 
 const GITEE_OWNER = 'Seyud'
 const GITEE_REPO = 'device_faker_config_mirror'
@@ -64,10 +63,9 @@ async function downloadWithCurl(
   resume: boolean = true
 ): Promise<boolean> {
   const resumeFlag = resume ? '-C -' : ''
-  const proxyFlag = getProxyArgs()
-  const command = `curl --progress-bar -L -k --connect-timeout ${TIMEOUT} -A "${USER_AGENT}" ${proxyFlag} ${resumeFlag} -o "${outputPath}" "${url}"`
+  const command = `curl --progress-bar -L -k --connect-timeout ${TIMEOUT} -A "${USER_AGENT}" ${resumeFlag} -o "${outputPath}" "${url}"`
   try {
-    console.log(`[Download] 使用 curl 下载: ${url}${proxyFlag ? ' (使用代理)' : ''}`)
+    console.log(`[Download] 使用 curl 下载: ${url}`)
     await execCommand(command)
     const verified = await verifyDownload(outputPath)
     if (verified) {
@@ -207,23 +205,6 @@ export interface OnlineTemplatesResult {
 const brandCache = new Map<TemplateCategory, string[]>()
 
 /**
- * 获取代理配置
- * @returns 代理参数或空字符串
- */
-function getProxyArgs(): string {
-  try {
-    const settingsStore = useSettingsStore()
-    const proxy = settingsStore.proxy
-    if (proxy && proxy.trim()) {
-      return `-x "${proxy.trim()}"`
-    }
-  } catch {
-    // 如果 store 未初始化，忽略
-  }
-  return ''
-}
-
-/**
  * 使用 curl 执行 HTTP GET 请求
  * @param url 请求地址
  * @param outputPath 输出文件路径（可选）
@@ -231,10 +212,9 @@ function getProxyArgs(): string {
  */
 async function httpGetWithCurl(url: string, outputPath?: string): Promise<string | null> {
   const outputFlag = outputPath ? `-o "${outputPath}"` : ''
-  const proxyFlag = getProxyArgs()
-  const command = `curl -s -L -k --connect-timeout ${TIMEOUT} -A "${USER_AGENT}" ${proxyFlag} ${outputFlag} "${url}"`
+  const command = `curl -s -L -k --connect-timeout ${TIMEOUT} -A "${USER_AGENT}" ${outputFlag} "${url}"`
   try {
-    console.log(`[HTTP] curl GET: ${url}${proxyFlag ? ' (使用代理)' : ''}`)
+    console.log(`[HTTP] curl GET: ${url}`)
     if (outputPath) {
       await execCommand(command)
       const content = await execCommand(`cat "${outputPath}"`)
