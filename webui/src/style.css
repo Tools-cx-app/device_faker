@@ -539,3 +539,102 @@ div.el-message-box__wrapper > div.el-message-box {
 .el-message-box__container {
   text-align: left !important;
 }
+
+/* El Collapse 样式 - 在 dialog 内使用时覆盖 */
+.template-dialog .el-collapse,
+.app-config-dialog .el-collapse {
+  border: none;
+  background: transparent;
+  margin-bottom: 16px;
+}
+
+.template-dialog .el-collapse-item,
+.app-config-dialog .el-collapse-item {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.template-dialog .el-collapse-item:last-child,
+.app-config-dialog .el-collapse-item:last-child {
+  margin-bottom: 0;
+}
+
+.template-dialog .el-collapse-item__header,
+.app-config-dialog .el-collapse-item__header {
+  height: auto;
+  min-height: 44px;
+  padding: 12px 16px;
+  line-height: 1.5;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--background);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.template-dialog .el-collapse-item__header:hover,
+.app-config-dialog .el-collapse-item__header:hover {
+  background: var(--hover);
+}
+
+.template-dialog .el-collapse-item__header.is-active,
+.app-config-dialog .el-collapse-item__header.is-active {
+  background: var(--primary-color-light, rgba(14, 165, 233, 0.08));
+  border-bottom: 1px solid var(--border);
+}
+
+.template-dialog .el-collapse-item__wrap,
+.app-config-dialog .el-collapse-item__wrap {
+  background: var(--card-bg);
+  border: none;
+}
+
+.template-dialog .el-collapse-item__content,
+.app-config-dialog .el-collapse-item__content {
+  padding: 16px;
+  background: var(--card-bg);
+}
+
+.template-dialog .el-collapse-item__arrow,
+.app-config-dialog .el-collapse-item__arrow {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-right: 8px;
+}
+
+.template-dialog .el-collapse-item__arrow.is-active,
+.app-config-dialog .el-collapse-item__arrow.is-active {
+  transform: rotate(90deg);
+}
+
+/* 深色模式 */
+.dark .template-dialog .el-collapse-item__header,
+.dark .app-config-dialog .el-collapse-item__header {
+  background: var(--el-bg-color-overlay);
+  color: var(--el-text-color-primary);
+}
+
+.dark .template-dialog .el-collapse-item__header:hover,
+.dark .app-config-dialog .el-collapse-item__header:hover {
+  background: var(--el-fill-color);
+}
+
+.dark .template-dialog .el-collapse-item__header.is-active,
+.dark .app-config-dialog .el-collapse-item__header.is-active {
+  background: rgba(14, 165, 233, 0.15);
+}
+
+.dark .template-dialog .el-collapse-item__content,
+.dark .app-config-dialog .el-collapse-item__content {
+  background: var(--el-bg-color-overlay);
+}
+
+.dark .template-dialog .el-collapse-item__arrow,
+.dark .app-config-dialog .el-collapse-item__arrow {
+  color: var(--el-text-color-secondary);
+}

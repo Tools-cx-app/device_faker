@@ -65,20 +65,24 @@
         />
       </el-form-item>
 
-      <el-form-item :label="t('templates.fields.android_version')">
-        <el-input
-          v-model="formData.android_version"
-          :placeholder="t('templates.placeholders.android_version')"
-        />
-      </el-form-item>
+      <el-collapse>
+        <el-collapse-item :title="t('templates.fields.system')" name="system">
+          <el-form-item :label="t('templates.fields.android_version')">
+            <el-input
+              v-model="formData.android_version"
+              :placeholder="t('templates.placeholders.android_version')"
+            />
+          </el-form-item>
 
-      <el-form-item :label="t('templates.fields.sdk_int')">
-        <el-input
-          v-model="formData.sdk_int"
-          type="number"
-          :placeholder="t('templates.placeholders.sdk_int')"
-        />
-      </el-form-item>
+          <el-form-item :label="t('templates.fields.sdk_int')">
+            <el-input
+              v-model="formData.sdk_int"
+              type="number"
+              :placeholder="t('templates.placeholders.sdk_int')"
+            />
+          </el-form-item>
+        </el-collapse-item>
+      </el-collapse>
 
       <el-form-item :label="t('templates.fields.mode')">
         <el-select

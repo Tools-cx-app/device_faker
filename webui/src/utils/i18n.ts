@@ -60,6 +60,7 @@ export const messages = {
         force_denylist_unmount: '强制卸载挂载点',
         mode: '工作模式 (可选)',
         packages: '应用包名列表 (可选)',
+        system: '系统',
       },
       placeholders: {
         name: '例如：redmagic_9_pro',
@@ -322,6 +323,7 @@ export const messages = {
         force_denylist_unmount: 'Force Denylist Unmount',
         mode: 'Work Mode (Optional)',
         packages: 'Packages (Optional)',
+        system: 'System',
       },
       placeholders: {
         name: 'e.g. redmagic_9_pro',
