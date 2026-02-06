@@ -76,7 +76,7 @@ jobs:
           CHAT_ID: ${{ secrets.CHAT_ID }}
           MESSAGE_THREAD_ID: ${{ secrets.MESSAGE_THREAD_ID }}
           COMMIT_MESSAGE: |+
-            🚀 **Device_Faker Build \#${{ github.run_number }}**
+            🚀 **Device_Faker Build #${{ github.run_number }}**
             📋 **Build Info:**
             [Commit](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
             📝 **Commit Message:**
