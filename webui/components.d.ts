@@ -33,7 +33,4 @@ declare module 'vue' {
     TemplateHeader: typeof import('./src/components/templates/TemplateHeader.vue')['default']
     TemplateList: typeof import('./src/components/templates/TemplateList.vue')['default']
   }
-  export interface GlobalDirectives {
-    vLoading: typeof import('element-plus/es')['ElLoadingDirective']
-  }
 }

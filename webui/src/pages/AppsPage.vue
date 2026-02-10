@@ -5,6 +5,7 @@
       v-model:filter-type="filterType"
       :total-count="allApps.length"
       :configured-count="configuredCount"
+      :loading="loading"
     />
 
     <AppList :apps="filteredApps" :empty-text="emptyText" :loading="loading" @select="openConfig" />
@@ -35,7 +36,12 @@ const filterType = ref<FilterType>('all')
 const configDialogVisible = ref(false)
 const currentApp = ref<InstalledApp | null>(null)
 
-const loading = computed(() => appsStore.loading)
+// 根据 store 内容初始化加载状态
+// 如果没有应用，则假设需要加载，因此以加载状态开始
+// 防止出现空/部分内容的"闪烁"
+const isInitializing = ref(appsStore.installedApps.length === 0 && !appsStore.loading)
+
+const loading = computed(() => appsStore.loading || isInitializing.value)
 const installedApps = computed(() => appsStore.installedApps)
 
 const configuredApps = computed<InstalledApp[]>(() => {
@@ -158,12 +164,15 @@ function handleConfigSaved() {
   // 预留钩子，未来可在保存后刷新列表或提示
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (appsStore.installedApps.length === 0 && !appsStore.loading) {
     // 延迟到下一帧再加载，先完成页面切换体验
-    requestAnimationFrame(() => {
-      void appsStore.loadInstalledApps()
+    requestAnimationFrame(async () => {
+      await appsStore.loadInstalledApps()
+      isInitializing.value = false
     })
+  } else {
+    isInitializing.value = false
   }
 })
 </script>

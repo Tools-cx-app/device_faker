@@ -15,7 +15,7 @@
 
   <div class="filter-tabs">
     <button :class="['filter-tab', { active: filterType === 'all' }]" @click="setFilter('all')">
-      {{ t('apps.tabs.all') }} ({{ totalCount }})
+      {{ t('apps.tabs.all') }} <span v-if="!loading">({{ totalCount }})</span>
     </button>
     <button
       :class="['filter-tab', { active: filterType === 'configured' }]"
@@ -38,6 +38,7 @@ const props = defineProps<{
   filterType: FilterType
   totalCount: number
   configuredCount: number
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{ 'update:searchQuery': [string]; 'update:filterType': [FilterType] }>()

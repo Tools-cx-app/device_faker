@@ -1,58 +1,76 @@
 <template>
-  <div v-loading="loading" class="apps-list">
-    <div
-      v-for="app in apps"
-      :key="app.packageName"
-      class="app-card glass-effect"
-      @click="emit('select', app)"
-    >
-      <div class="app-icon-container" :data-package="app.packageName">
-        <div
-          v-if="
-            !appIcons[app.packageName] ||
-            (appIcons[app.packageName] !== 'fallback' && !iconLoaded[app.packageName])
-          "
-          class="icon-loader"
-        ></div>
-        <img
-          v-if="appIcons[app.packageName] && appIcons[app.packageName] !== 'fallback'"
-          :src="appIcons[app.packageName]"
-          class="app-icon-img"
-          :class="{ loaded: iconLoaded[app.packageName] }"
-          alt=""
-          loading="lazy"
-          @load="onIconLoad(app.packageName)"
-          @error="onIconError(app.packageName)"
-        />
-        <Smartphone
-          v-if="appIcons[app.packageName] === 'fallback'"
-          :size="40"
-          class="app-icon-fallback"
-        />
-      </div>
-      <div class="app-info">
-        <h3 class="app-name">{{ app.appName }}</h3>
-        <p class="app-package">{{ app.packageName }}</p>
-        <div class="app-status-group">
-          <p v-if="isConfigured(app.packageName)" class="app-status configured">
-            <Check :size="14" />
-            {{ t('apps.status.configured') }}
-          </p>
-          <p v-else class="app-status unconfigured">{{ t('apps.status.unconfigured') }}</p>
-          <p v-if="!isInstalled(app)" class="app-status not-installed">
-            {{ t('apps.status.not_installed') }}
-          </p>
+  <div class="apps-list">
+    <template v-if="loading">
+      <div v-for="i in 15" :key="i" class="app-card glass-effect skeleton-item">
+        <div class="app-icon-container">
+          <div class="skeleton-loader icon-placeholder"></div>
+        </div>
+        <div class="app-info">
+          <div class="skeleton-loader name-placeholder"></div>
+          <div class="skeleton-loader package-placeholder"></div>
+          <div class="app-status-group">
+            <div class="skeleton-loader badge-placeholder"></div>
+            <div class="skeleton-loader badge-placeholder short"></div>
+          </div>
         </div>
       </div>
-      <div class="app-actions">
-        <ChevronRight :size="20" />
-      </div>
-    </div>
+    </template>
 
-    <div v-if="!loading && apps.length === 0" class="empty-state">
-      <Smartphone :size="64" class="empty-icon" />
-      <p class="empty-text">{{ emptyText }}</p>
-    </div>
+    <template v-else>
+      <div
+        v-for="app in apps"
+        :key="app.packageName"
+        class="app-card glass-effect"
+        @click="emit('select', app)"
+      >
+        <div class="app-icon-container" :data-package="app.packageName">
+          <div
+            v-if="
+              !appIcons[app.packageName] ||
+              (appIcons[app.packageName] !== 'fallback' && !iconLoaded[app.packageName])
+            "
+            class="skeleton-loader icon-placeholder"
+          ></div>
+          <img
+            v-if="appIcons[app.packageName] && appIcons[app.packageName] !== 'fallback'"
+            :src="appIcons[app.packageName]"
+            class="app-icon-img"
+            :class="{ loaded: iconLoaded[app.packageName] }"
+            alt=""
+            loading="lazy"
+            @load="onIconLoad(app.packageName)"
+            @error="onIconError(app.packageName)"
+          />
+          <Smartphone
+            v-if="appIcons[app.packageName] === 'fallback'"
+            :size="40"
+            class="app-icon-fallback"
+          />
+        </div>
+        <div class="app-info">
+          <h3 class="app-name">{{ app.appName }}</h3>
+          <p class="app-package">{{ app.packageName }}</p>
+          <div class="app-status-group">
+            <p v-if="isConfigured(app.packageName)" class="app-status configured">
+              <Check :size="14" />
+              {{ t('apps.status.configured') }}
+            </p>
+            <p v-else class="app-status unconfigured">{{ t('apps.status.unconfigured') }}</p>
+            <p v-if="!isInstalled(app)" class="app-status not-installed">
+              {{ t('apps.status.not_installed') }}
+            </p>
+          </div>
+        </div>
+        <div class="app-actions">
+          <ChevronRight :size="20" />
+        </div>
+      </div>
+
+      <div v-if="apps.length === 0" class="empty-state">
+        <Smartphone :size="64" class="empty-icon" />
+        <p class="empty-text">{{ emptyText }}</p>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -83,7 +101,7 @@ const isInstalled = (app: InstalledApp) => app.installed !== false
 const loading = computed(() => props.loading)
 
 watch(
-  () => props.apps,
+  () => [props.apps, props.loading],
   () => {
     nextTick(() => setupIconObserver())
   }
@@ -133,18 +151,6 @@ onUnmounted(() => {
   flex-shrink: 0;
   border-radius: 0.75rem;
   overflow: hidden;
-}
-
-.icon-loader {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, var(--card-bg), var(--border), var(--card-bg));
-  background-size: 200% 100%;
-  animation: shimmer 1.2s infinite linear;
-  border-radius: 0.75rem;
 }
 
 @keyframes shimmer {
@@ -253,5 +259,60 @@ onUnmounted(() => {
   font-size: 1.125rem;
   font-weight: 500;
   color: var(--text);
+}
+
+.skeleton-item {
+  pointer-events: none;
+}
+
+.skeleton-loader {
+  background: linear-gradient(90deg, var(--border) 25%, var(--card-bg) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: 0.25rem;
+  opacity: 0.7;
+}
+
+.dark .skeleton-loader {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 75%
+  );
+}
+
+.icon-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0.75rem;
+  z-index: 1;
+}
+
+.name-placeholder {
+  height: 1rem;
+  width: 60%;
+  margin-bottom: 0.5rem;
+}
+
+.package-placeholder {
+  height: 0.75rem;
+  width: 40%;
+  margin-bottom: 0.5rem;
+}
+
+.badge-placeholder {
+  height: 1.25rem;
+  width: 5rem;
+  display: inline-block;
+  margin-right: 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.badge-placeholder.short {
+  width: 3rem;
 }
 </style>
