@@ -18,6 +18,13 @@ export const messages = {
       disabled: '禁用',
       saved: '已保存',
     },
+    config: {
+      load_failed: '配置加载失败',
+      empty_content: '配置为空，未写入',
+      save_verify_failed: '保存后校验失败',
+      backup_used: '已使用本地备份恢复配置',
+      backup_failed: '本地备份不可用，配置加载失败',
+    },
     nav: {
       status: '状态',
       templates: '模板',
@@ -280,6 +287,13 @@ export const messages = {
       enabled: 'Enabled',
       disabled: 'Disabled',
       saved: 'Saved',
+    },
+    config: {
+      load_failed: 'Failed to load configuration',
+      empty_content: 'Configuration is empty, nothing written',
+      save_verify_failed: 'Save verification failed',
+      backup_used: 'Recovered configuration from local backup',
+      backup_failed: 'Local backup unavailable, configuration load failed',
     },
     nav: {
       status: 'Status',

@@ -37,10 +37,48 @@ export async function readFile(path: string): Promise<string> {
   return content.trim()
 }
 
+function escapeShellPath(path: string): string {
+  return path.replace(/'/g, "'\\''")
+}
+
+function hasHeredocDelimiter(content: string, delimiter: string): boolean {
+  const normalized = content.replace(/\r\n/g, '\n')
+  if (normalized.includes(`\n${delimiter}\n`)) return true
+  if (normalized.startsWith(`${delimiter}\n`)) return true
+  if (normalized.endsWith(`\n${delimiter}`)) return true
+  return false
+}
+
+function pickHeredocDelimiter(content: string): string {
+  const base = 'EOF_DEVICE_FAKER'
+  let delimiter = base
+  let attempt = 0
+  while (hasHeredocDelimiter(content, delimiter)) {
+    attempt += 1
+    delimiter = `${base}_${attempt}_${Math.random().toString(36).slice(2, 8)}`
+  }
+  return delimiter
+}
+
 // 写入文件
 export async function writeFile(path: string, content: string): Promise<void> {
-  const escapedContent = content.replace(/'/g, "'\\''")
-  await execCommand(`echo '${escapedContent}' > ${path}`)
+  const delimiter = pickHeredocDelimiter(content)
+  const escapedPath = escapeShellPath(path)
+  const tempPath = escapeShellPath(`${path}.tmp.${Date.now()}`)
+  const script = [
+    `cat << '${delimiter}' > '${tempPath}'`,
+    content,
+    delimiter,
+    `sync '${tempPath}' || true`,
+    `mv -f '${tempPath}' '${escapedPath}'`,
+  ].join('\n')
+
+  try {
+    await execCommand(script)
+  } catch (err) {
+    await execCommand(`rm -f '${tempPath}'`).catch(() => {})
+    throw err
+  }
 }
 
 /**

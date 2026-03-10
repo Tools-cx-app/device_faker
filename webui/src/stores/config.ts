@@ -4,23 +4,51 @@ import type { Config, Template, AppConfig } from '../types'
 import { readFile, writeFile, fileExists, mkdir } from '../utils/ksu'
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml'
 import { normalizePackageName } from '../utils/package'
+import { toast } from 'kernelsu-alt'
+import { useI18n } from '../utils/i18n'
 
 const CONFIG_PATH = '/data/adb/device_faker/config/config.toml'
 const MODULE_PROP_PATH = '/data/adb/modules/device_faker/module.prop'
+const CONFIG_BACKUP_KEY = 'device_faker_config_backup_v1'
 
 export const useConfigStore = defineStore('config', () => {
   const config = ref<Config>({})
   const moduleVersion = ref('0.0.0')
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const { t } = useI18n()
+
+  function saveConfigBackup(content: string) {
+    if (typeof localStorage === 'undefined') return
+    localStorage.setItem(CONFIG_BACKUP_KEY, content)
+  }
+
+  function loadConfigBackup(): string | null {
+    if (typeof localStorage === 'undefined') return null
+    return localStorage.getItem(CONFIG_BACKUP_KEY)
+  }
 
   // 加载配置文件
   async function loadConfig() {
     loading.value = true
     error.value = null
     try {
+      let content: string | null = null
+
+      try {
+        content = await readFile(CONFIG_PATH)
+      } catch {
+        content = null
+      }
+
+      if (content && content.trim().length > 0) {
+        config.value = parseToml(content) as Config
+        saveConfigBackup(content)
+        return
+      }
+
       const exists = await fileExists(CONFIG_PATH)
-      if (!exists) {
+      if (!exists && (!content || content.trim().length === 0)) {
         // 创建默认配置
         await mkdir('/data/adb/device_faker/config')
         config.value = {
@@ -29,12 +57,24 @@ export const useConfigStore = defineStore('config', () => {
           apps: [],
         }
         await saveConfig()
-      } else {
-        const content = await readFile(CONFIG_PATH)
-        config.value = parseToml(content) as Config
+        return
       }
+
+      throw new Error(t('config.load_failed'))
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
+      const backup = loadConfigBackup()
+      if (backup) {
+        try {
+          config.value = parseToml(backup) as Config
+          error.value = null
+          toast(t('config.backup_used'))
+          return
+        } catch {
+          // fallthrough
+        }
+      }
+      toast(t('config.backup_failed'))
     } finally {
       loading.value = false
     }
@@ -47,7 +87,19 @@ export const useConfigStore = defineStore('config', () => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const content = stringifyToml(config.value as any)
+      if (!content || content.trim().length === 0) {
+        throw new Error(t('config.empty_content'))
+      }
+
       await writeFile(CONFIG_PATH, content)
+
+      const verifyContent = await readFile(CONFIG_PATH)
+      if (!verifyContent || verifyContent.trim().length === 0) {
+        throw new Error(t('config.save_verify_failed'))
+      }
+
+      parseToml(verifyContent)
+      saveConfigBackup(verifyContent)
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
       throw e
