@@ -14,6 +14,7 @@ const CONFIG_BACKUP_KEY = 'device_faker_config_backup_v1'
 export const useConfigStore = defineStore('config', () => {
   const config = ref<Config>({})
   const moduleVersion = ref('0.0.0')
+  const moduleAuthor = ref('Seyud')
   const loading = ref(false)
   const error = ref<string | null>(null)
   const { t } = useI18n()
@@ -112,9 +113,14 @@ export const useConfigStore = defineStore('config', () => {
   async function loadModuleVersion() {
     try {
       const content = await readFile(MODULE_PROP_PATH)
-      const match = content.match(/version=(.+)/)
-      if (match) {
-        moduleVersion.value = match[1].trim()
+      const versionMatch = content.match(/version=(.+)/)
+      if (versionMatch) {
+        moduleVersion.value = versionMatch[1].trim()
+      }
+
+      const authorMatch = content.match(/author=(.+)/)
+      if (authorMatch) {
+        moduleAuthor.value = authorMatch[1].trim()
       }
     } catch {
       // 使用默认版本
@@ -277,6 +283,7 @@ export const useConfigStore = defineStore('config', () => {
   return {
     config,
     moduleVersion,
+    moduleAuthor,
     loading,
     error,
     // Computed 属性（自动缓存）

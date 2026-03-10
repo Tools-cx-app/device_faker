@@ -44,7 +44,7 @@ import SettingsPage from './pages/SettingsPage.vue'
 const configStore = useConfigStore()
 const settingsStore = useSettingsStore()
 
-const currentPage = ref('status')
+const currentPage = ref('home')
 let lastClickTime = 0
 let isChangingPage = false
 
@@ -104,7 +104,7 @@ const isDark = computed(() => {
 const { t } = useI18n()
 
 const pages = computed(() => [
-  { id: 'status', label: t('nav.status'), icon: Home, component: StatusPage },
+  { id: 'home', label: t('nav.home'), icon: Home, component: StatusPage },
   { id: 'templates', label: t('nav.templates'), icon: FileText, component: TemplatePage },
   { id: 'apps', label: t('nav.apps'), icon: Smartphone, component: AppsPage },
   { id: 'settings', label: t('nav.settings'), icon: Settings, component: SettingsPage },

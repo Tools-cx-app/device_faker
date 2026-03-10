@@ -42,7 +42,7 @@ id=device_faker
 name=Device Faker
 version=1.0.0
 versionCode=100
-author=Seyud
+author=酷安@瓦力喀/GitHub@Seyud
 description=机型伪装模块
 `
 

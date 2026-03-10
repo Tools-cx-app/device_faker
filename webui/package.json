@@ -19,6 +19,7 @@
     "kernelsu-alt": "^3.0.0",
     "lucide-vue-next": "^0.562.0",
     "pinia": "^3.0.4",
+    "simple-icons": "^16.11.0",
     "smol-toml": "^1.6.0",
     "vue": "^3.5.0",
     "webuix": "^0.0.18"

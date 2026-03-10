@@ -44,22 +44,217 @@
             <span class="status-value">{{ workMode }}</span>
           </div>
         </div>
+
+        <div class="status-item clickable" @click="followDialogVisible = true">
+          <div class="status-icon gradient-icon-5">
+            <HeartHandshake :size="32" />
+          </div>
+          <div class="status-info">
+            <span class="status-label">{{ t('status.follow.title') }}</span>
+            <span class="status-value">{{ t('status.follow.action') }}</span>
+            <span class="status-build">{{ t('status.follow.channels') }}</span>
+          </div>
+        </div>
       </div>
     </div>
+
+    <el-dialog
+      v-model="followDialogVisible"
+      :title="t('status.follow.dialog_title')"
+      width="90%"
+      :close-on-click-modal="false"
+      :append-to-body="true"
+      :destroy-on-close="true"
+      :z-index="2001"
+      class="follow-dialog"
+      modal-class="follow-dialog-modal"
+    >
+      <div class="follow-dialog-content">
+        <div class="follow-row">
+          <div class="follow-row-icon gradient-icon-1">
+            <Package :size="20" />
+          </div>
+          <div class="follow-row-body">
+            <span class="follow-row-label">{{ t('status.follow.module_name') }}</span>
+            <span class="follow-row-value">Device Faker</span>
+          </div>
+        </div>
+
+        <div class="follow-row">
+          <div class="follow-row-icon gradient-icon-2">
+            <UserRound :size="20" />
+          </div>
+          <div class="follow-row-body">
+            <span class="follow-row-label">{{ t('status.follow.author') }}</span>
+            <div v-if="authorLinks.length > 0" class="community-links">
+              <button
+                v-for="authorLink in authorLinks"
+                :key="authorLink.platform + authorLink.label"
+                type="button"
+                class="community-link author-pill"
+                @click="openAuthorLink(authorLink.platform)"
+              >
+                <span
+                  v-if="authorLink.platform.toLowerCase() === 'github'"
+                  class="brand-logo github-logo"
+                  aria-hidden="true"
+                >
+                  <svg viewBox="0 0 24 24" role="img">
+                    <path :d="siGithub.path" fill="currentColor" />
+                  </svg>
+                </span>
+                <span
+                  v-else-if="authorLink.platform === '酷安'"
+                  class="brand-logo coolapk-logo"
+                  aria-hidden="true"
+                  >C</span
+                >
+                <span>{{ authorLink.fullText }}</span>
+              </button>
+            </div>
+            <span v-else class="follow-row-value">{{ moduleAuthor }}</span>
+          </div>
+        </div>
+
+        <div class="follow-row follow-row-communities">
+          <div class="follow-row-icon gradient-icon-3">
+            <MessageCircleMore :size="20" />
+          </div>
+          <div class="follow-row-body">
+            <span class="follow-row-label">{{ t('status.follow.communities') }}</span>
+            <div class="community-links">
+              <button class="community-link" type="button" @click="openExternalUrl(qqGroupUrl)">
+                <span class="brand-logo qq-logo" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img">
+                    <path :d="siQq.path" fill="currentColor" />
+                  </svg>
+                </span>
+                <span>{{ t('status.follow.qq_group') }}</span>
+              </button>
+              <button class="community-link" type="button" @click="openExternalUrl(telegramUrl)">
+                <span class="brand-logo telegram-logo" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img">
+                    <path :d="siTelegram.path" fill="currentColor" />
+                  </svg>
+                </span>
+                <span>{{ t('status.follow.telegram') }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="follow-row">
+          <div class="follow-row-icon gradient-icon-4">
+            <Github :size="20" />
+          </div>
+          <div class="follow-row-body">
+            <span class="follow-row-label">{{ t('status.follow.repository') }}</span>
+            <button class="repo-link" type="button" @click="openExternalUrl(repositoryUrl)">
+              <span class="brand-logo github-logo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="img">
+                  <path :d="siGithub.path" fill="currentColor" />
+                </svg>
+              </span>
+              <span class="repo-link-text">
+                <span>{{ t('status.follow.repository_action_primary') }}</span>
+                <span>{{ t('status.follow.repository_action_secondary') }}</span>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="followDialogVisible = false">{{ t('common.cancel') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated } from 'vue'
-import { Shield, Smartphone, FileText, Settings } from 'lucide-vue-next'
+import { computed, onActivated, ref } from 'vue'
+import {
+  Shield,
+  Smartphone,
+  FileText,
+  Settings,
+  HeartHandshake,
+  Package,
+  UserRound,
+  MessageCircleMore,
+  Github,
+} from 'lucide-vue-next'
+import { siGithub, siQq, siTelegram } from 'simple-icons'
 import { useConfigStore } from '../stores/config'
 import { useI18n } from '../utils/i18n'
+import { execCommand } from '../utils/ksu'
 
 const configStore = useConfigStore()
 const { t } = useI18n()
+const followDialogVisible = ref(false)
+
+const qqGroupUrl =
+  'https://qun.qq.com/universal-share/share?ac=1&authKey=ls4nlfcsF%2Bxp5SPnVsXRgpbeV1axPZb%2FmJCMXms6ZCHjgAwvOyl1LV%2BDNVL1btgL&busi_data=eyJncm91cENvZGUiOiI4NTQxODgyNTIiLCJ0b2tlbiI6IlE1WVVyZTZxUXVjZUtGUUxWSGFmbzkvMEd3UWNRSiszdklTZDhHejU0RDRyT0lWRTFqS3d4UGJSM1ltaXpkS3MiLCJ1aW4iOiIxMTA1NzgzMDMzIn0%3D&data=IbvhTKt9HwCSsCsl_610-rQ8p6H2NgLmxhEKkMcn-BMWPb86jygWBZJfWLQGm7J8LwpVV2yhPafxTMXYGkjRVA&svctype=4&tempid=h5_group_info'
+const telegramUrl = 'https://t.me/device_faker'
+const repositoryUrl = 'https://github.com/Seyud/device_faker'
+const authorGithubUrl = 'https://github.com/Seyud'
+
+const authorLinks = computed(() => {
+  return moduleAuthor.value
+    .split('/')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [platform, label] = entry.split('@')
+      return {
+        platform: platform?.trim() || '',
+        label: label?.trim() || entry,
+        fullText: entry,
+      }
+    })
+    .filter((entry) => entry.label)
+})
+
+function escapeShellArg(value: string) {
+  return value.replace(/'/g, `'\\''`)
+}
+
+async function openExternalUrl(url: string) {
+  try {
+    await execCommand(
+      `am start -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d '${escapeShellArg(url)}' >/dev/null 2>&1`
+    )
+  } catch {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  } finally {
+    followDialogVisible.value = false
+  }
+}
+
+async function openCoolapkProfile() {
+  try {
+    await execCommand("am start -d 'coolmarket://u/4621247' >/dev/null 2>&1")
+  } catch {
+    window.open('https://www.coolapk.com/u/4621247', '_blank', 'noopener,noreferrer')
+  } finally {
+    followDialogVisible.value = false
+  }
+}
+
+function openAuthorLink(platform: string) {
+  if (platform === '酷安') {
+    void openCoolapkProfile()
+    return
+  }
+
+  if (platform.toLowerCase() === 'github') {
+    void openExternalUrl(authorGithubUrl)
+  }
+}
 
 // 直接使用 store 中的 computed 属性，避免重复计算
 const moduleVersion = computed(() => configStore.moduleVersion)
+const moduleAuthor = computed(() => configStore.moduleAuthor)
 const moduleVersionMain = computed(() => {
   const v = moduleVersion.value
   const idx = v.indexOf('(')
@@ -162,6 +357,7 @@ onActivated(() => {
   height: 48px;
   border-radius: 12px;
   position: relative;
+  flex-shrink: 0;
 }
 
 .gradient-icon-1 {
@@ -188,9 +384,16 @@ onActivated(() => {
   box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
 }
 
+.gradient-icon-5 {
+  background: linear-gradient(135deg, #f97316 0%, #fb7185 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+}
+
 .status-info {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .status-label {
@@ -209,5 +412,176 @@ onActivated(() => {
   color: var(--text-secondary);
   opacity: 0.7;
   font-family: monospace;
+}
+
+.follow-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.follow-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 1rem;
+  background: var(--background);
+  border-radius: 0.875rem;
+}
+
+.follow-row-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.follow-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.follow-row-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.follow-row-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.community-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.community-link,
+.repo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--primary);
+  text-decoration: none;
+  word-break: break-all;
+  border: none;
+  cursor: pointer;
+}
+
+.community-link {
+  padding: 0.55rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.12);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.repo-link {
+  width: fit-content;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.75rem;
+  background: rgba(14, 165, 233, 0.12);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.repo-link-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.35;
+}
+
+.author-pill {
+  font-weight: 600;
+}
+
+.author-pill:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.brand-logo svg {
+  width: 100%;
+  height: 100%;
+}
+
+.qq-logo {
+  color: #12b7f5;
+}
+
+.telegram-logo {
+  color: #27a7e7;
+}
+
+.coolapk-logo {
+  color: #4caf50;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.github-logo {
+  color: currentColor;
+}
+
+@media (max-width: 520px) {
+  .repo-link {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .repo-link-text {
+    align-items: center;
+  }
+}
+</style>
+
+<style>
+.follow-dialog :deep(.el-dialog) {
+  background: rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(40px) saturate(150%) brightness(1.1);
+  -webkit-backdrop-filter: blur(40px) saturate(150%) brightness(1.1);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.follow-dialog-modal {
+  backdrop-filter: blur(12px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(120%) !important;
+  background-color: rgba(0, 0, 0, 0.25) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .follow-dialog :deep(.el-dialog) {
+    background: rgba(20, 20, 20, 0.6) !important;
+    backdrop-filter: blur(40px) saturate(150%) brightness(0.9);
+    -webkit-backdrop-filter: blur(40px) saturate(150%) brightness(0.9);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .follow-dialog-modal {
+    backdrop-filter: blur(12px) saturate(120%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(120%) !important;
+    background-color: rgba(0, 0, 0, 0.4) !important;
+  }
 }
 </style>
