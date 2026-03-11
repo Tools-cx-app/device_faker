@@ -61,3 +61,7 @@ interface Window {
   }>
   ksu?: unknown
 }
+
+interface ObjectConstructor {
+  hasOwn(o: object, v: PropertyKey): boolean
+}

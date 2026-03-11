@@ -1,3 +1,4 @@
+import './polyfills'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import 'element-plus/theme-chalk/dark/css-vars.css'

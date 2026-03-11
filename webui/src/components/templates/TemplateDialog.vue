@@ -320,7 +320,10 @@ async function saveTemplate() {
   }
 
   if (formData.value.sdk_int) {
-    template.sdk_int = Number(formData.value.sdk_int)
+    const sdkInt = Number(formData.value.sdk_int)
+    if (!isNaN(sdkInt)) {
+      template.sdk_int = sdkInt
+    }
   }
 
   if (formData.value.name_field) {
@@ -354,8 +357,10 @@ async function saveTemplate() {
     toast(t('templates.messages.saved'))
     emit('saved', formData.value.name)
     visible.value = false
-  } catch {
-    toast(t('common.failed'))
+  } catch (e) {
+    console.error('Save template failed:', e)
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    toast(`${t('common.failed')}: ${errorMessage}`)
   }
 }
 

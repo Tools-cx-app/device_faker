@@ -126,8 +126,11 @@ async function deleteTemplateConfirm(name: string) {
     configStore.deleteTemplate(name)
     await configStore.saveConfig()
     toast(t('templates.messages.deleted'))
-  } catch {
-    // 用户取消
+  } catch (e) {
+    if (e === 'cancel') return
+    console.error('Delete template failed:', e)
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    toast(`${t('common.failed')}: ${errorMessage}`)
   }
 }
 
