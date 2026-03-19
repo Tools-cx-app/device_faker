@@ -1,5 +1,21 @@
 # 📝 Changelog
 
+## ⬆️[v1.3.0 → v1.3.5] - 2026-03-20
+
+### 🆕 New Features
+- 👁️ WebUI home page added follow module
+
+### 🐛 Bug Fixes
+- 🔧 Fixed WebUI scrolling issue caused by changes in Android System WebView rendering logic
+- 🔧 Fixed configuration parsing failure due to old Android System WebView not supporting ES2022 standard
+
+### ⚡ Improvements
+- 🏗️ Replaced python scripts with xtask for core compilation (by @Tools-cx-app)
+- 🌐 Optimized WebUI online template library loading, added wget loading method and retry mechanism
+- 🎨 Optimized WebUI app configuration editing interface interaction
+- ⚡ Optimized WebUI app list loading display
+- 📋 Improved WebUI configuration reading, parsing, editing and saving
+
 ## ⬆️[v1.2.0 → v1.3.0] - 2026-01-22
 
 ### 🆕 New Features

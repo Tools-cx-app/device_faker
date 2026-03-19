@@ -293,7 +293,7 @@ dependencies = [
 
 [[package]]
 name = "device_faker"
-version = "1.3.0"
+version = "1.3.5"
 dependencies = [
  "android_logger",
  "anyhow",
