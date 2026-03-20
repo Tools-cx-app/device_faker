@@ -51,7 +51,7 @@
           <h3 class="app-name">{{ app.appName }}</h3>
           <p class="app-package">{{ app.packageName }}</p>
           <div class="app-status-group">
-            <p v-if="isConfigured(app.packageName)" class="app-status configured">
+            <p v-if="app.configured" class="app-status configured">
               <Check :size="14" />
               {{ t('apps.status.configured') }}
             </p>
@@ -77,25 +77,24 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { Smartphone, ChevronRight, Check } from 'lucide-vue-next'
-import { useConfigStore } from '../../stores/config'
 import { useI18n } from '../../utils/i18n'
 import { useAppIcons } from '../../composables/useAppIcons'
 import type { InstalledApp } from '../../types'
 
+type AppListItem = InstalledApp & { configured: boolean }
+
 const props = defineProps<{
-  apps: InstalledApp[]
+  apps: AppListItem[]
   emptyText: string
   loading: boolean
 }>()
 
-const emit = defineEmits<{ select: [InstalledApp] }>()
+const emit = defineEmits<{ select: [AppListItem] }>()
 
 const { t } = useI18n()
-const configStore = useConfigStore()
 const { appIcons, iconLoaded, onIconLoad, onIconError, setupIconObserver, teardownIconObserver } =
   useAppIcons()
 
-const isConfigured = (packageName: string) => configStore.isPackageConfigured(packageName)
 const isInstalled = (app: InstalledApp) => app.installed !== false
 
 const loading = computed(() => props.loading)

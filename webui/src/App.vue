@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watchEffect } from 'vue'
+import { ref, computed, defineAsyncComponent, onMounted, onUnmounted, watchEffect } from 'vue'
 import { Home, FileText, Smartphone, Settings } from 'lucide-vue-next'
 import AppsPageSkeleton from './components/apps/AppsPageSkeleton.vue'
 import { useAppsStore } from './stores/apps'
@@ -44,8 +44,33 @@ import { useSettingsStore } from './stores/settings'
 import { useI18n } from './utils/i18n'
 import StatusPage from './pages/StatusPage.vue'
 import TemplatePage from './pages/TemplatePage.vue'
-import AppsPage from './pages/AppsPage.vue'
 import SettingsPage from './pages/SettingsPage.vue'
+
+type AppsPageComponent = (typeof import('./pages/AppsPage.vue'))['default']
+
+let appsPageLoader: Promise<AppsPageComponent> | null = null
+let appsPageReady = false
+
+function preloadAppsPage() {
+  if (!appsPageLoader) {
+    appsPageLoader = import('./pages/AppsPage.vue')
+      .then((module) => {
+        appsPageReady = true
+        return module.default
+      })
+      .catch((error) => {
+        appsPageLoader = null
+        throw error
+      })
+  }
+
+  return appsPageLoader
+}
+
+const AppsPage = defineAsyncComponent({
+  loader: preloadAppsPage,
+  suspensible: false,
+})
 
 const configStore = useConfigStore()
 const appsStore = useAppsStore()
@@ -56,6 +81,9 @@ const displayedPage = ref('home')
 let lastClickTime = 0
 let isChangingPage = false
 let appsBootstrapToken = 0
+let appsWarmupStarted = false
+let appsWarmupTimer: number | null = null
+let appsWarmupIdleId: number | null = null
 
 // 滚动条宽度补偿机制
 const scrollbarWidth = ref(0)
@@ -120,19 +148,28 @@ function handlePageChange(pageId: string) {
     stabilizeTemplateEntryFromHome()
   }
 
-  if (pageId === 'apps' && !appsStore.hasLoadedUserApps) {
+  if (pageId === 'apps' && !appsPageReady) {
     const token = ++appsBootstrapToken
     displayedPage.value = 'apps-skeleton'
-    void appsStore.loadInstalledApps({ includeSystem: settingsStore.showSystemApps })
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (activePage.value !== 'apps' || token !== appsBootstrapToken) {
-          return
-        }
-        displayedPage.value = 'apps'
+    void appsStore.ensureUserAppsLoaded()
+    void preloadAppsPage()
+      .then(() => {
+        requestAnimationFrame(() => {
+          if (activePage.value !== 'apps' || token !== appsBootstrapToken) {
+            return
+          }
+          displayedPage.value = 'apps'
+        })
       })
-    })
+      .catch(() => {
+        if (activePage.value === 'apps' && token === appsBootstrapToken) {
+          displayedPage.value = 'apps'
+        }
+      })
   } else {
+    if (pageId === 'apps') {
+      void appsStore.ensureUserAppsLoaded()
+    }
     displayedPage.value = pageId
   }
 
@@ -229,6 +266,29 @@ function calculateScrollbarWidth(): number {
   return width
 }
 
+function warmupAppsPage() {
+  if (appsWarmupStarted) return
+
+  appsWarmupStarted = true
+  void preloadAppsPage().catch(() => {})
+  void appsStore.ensureUserAppsLoaded()
+}
+
+function scheduleAppsPageWarmup() {
+  if (typeof window.requestIdleCallback === 'function') {
+    appsWarmupIdleId = window.requestIdleCallback(() => {
+      warmupAppsPage()
+      appsWarmupIdleId = null
+    })
+    return
+  }
+
+  appsWarmupTimer = window.setTimeout(() => {
+    warmupAppsPage()
+    appsWarmupTimer = null
+  }, 300)
+}
+
 // 应用滚动条宽度补偿
 function applyScrollbarWidth() {
   const width = calculateScrollbarWidth()
@@ -262,6 +322,7 @@ function applyScrollbarWidth() {
 onMounted(() => {
   configStore.loadConfig()
   configStore.loadModuleVersion()
+  scheduleAppsPageWarmup()
 
   // 初始化滚动条宽度计算
   applyScrollbarWidth()
@@ -284,6 +345,16 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', applyScrollbarWidth)
   window.removeEventListener('scroll', applyScrollbarWidth)
+
+  if (appsWarmupTimer !== null) {
+    window.clearTimeout(appsWarmupTimer)
+    appsWarmupTimer = null
+  }
+
+  if (appsWarmupIdleId !== null && typeof window.cancelIdleCallback === 'function') {
+    window.cancelIdleCallback(appsWarmupIdleId)
+    appsWarmupIdleId = null
+  }
 })
 </script>
 

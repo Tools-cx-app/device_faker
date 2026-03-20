@@ -43,6 +43,7 @@ import { normalizePackageName } from '../utils/package'
 import type { InstalledApp } from '../types'
 
 type FilterType = 'all' | 'configured'
+type AppListItem = InstalledApp & { configured: boolean }
 
 const AppConfigDialog = defineAsyncComponent(() => import('../components/apps/AppConfigDialog.vue'))
 
@@ -60,57 +61,60 @@ const showSystemApps = computed({
   set: (value: boolean) => settingsStore.setShowSystemApps(value),
 })
 
-// 首次进入页面时先保留骨架，等第一批可展示列表准备好再收起
-const isInitializing = ref(!appsStore.hasLoadedUserApps && !appsStore.loading)
+// 首次进入页面时仅等待用户应用列表，附加补全任务改为后台执行
+const isInitializing = ref(!appsStore.hasLoadedUserApps)
 const installedApps = computed(() => appsStore.installedApps)
 
-const configuredPackageNames = computed(() => {
-  const packages = new Set<string>()
+const configuredPackageState = computed(() => {
+  const exactPackages = new Set<string>()
+  const normalizedPackages = new Set<string>()
+  const configuredAppsMap = new Map<string, InstalledApp>()
 
   for (const appConfig of configStore.getApps()) {
-    packages.add(appConfig.package)
-  }
-
-  for (const template of Object.values(configStore.getTemplates())) {
-    if (!template.packages) continue
-    for (const pkg of template.packages) {
-      packages.add(pkg)
-    }
-  }
-
-  return Array.from(packages)
-})
-
-const configuredApps = computed<InstalledApp[]>(() => {
-  const map = new Map<string, InstalledApp>()
-
-  for (const appConfig of configStore.getApps()) {
-    if (map.has(appConfig.package)) continue
-
-    map.set(appConfig.package, {
+    exactPackages.add(appConfig.package)
+    normalizedPackages.add(normalizePackageName(appConfig.package))
+    configuredAppsMap.set(appConfig.package, {
       packageName: appConfig.package,
       appName: appConfig.package,
     })
   }
 
-  const templates = configStore.getTemplates()
-  for (const template of Object.values(templates)) {
+  for (const template of Object.values(configStore.getTemplates())) {
     if (!template.packages) continue
     for (const pkg of template.packages) {
-      if (map.has(pkg)) continue
+      exactPackages.add(pkg)
+      normalizedPackages.add(normalizePackageName(pkg))
+      if (configuredAppsMap.has(pkg)) continue
 
-      map.set(pkg, {
+      configuredAppsMap.set(pkg, {
         packageName: pkg,
         appName: pkg,
       })
     }
   }
 
-  return Array.from(map.values())
+  return {
+    packages: Array.from(exactPackages),
+    exactPackages,
+    normalizedPackages,
+    configuredApps: Array.from(configuredAppsMap.values()),
+  }
 })
 
-const allApps = computed<InstalledApp[]>(() => {
-  const result: InstalledApp[] = []
+function isConfiguredPackage(packageName: string) {
+  if (configuredPackageState.value.exactPackages.has(packageName)) {
+    return true
+  }
+
+  if (!/@\d+$/.test(packageName)) {
+    return false
+  }
+
+  return configuredPackageState.value.normalizedPackages.has(normalizePackageName(packageName))
+}
+
+const allApps = computed<AppListItem[]>(() => {
+  const result: AppListItem[] = []
   const packageIndex = new Map<string, number>()
   const normalizedIndex = new Map<string, number>()
 
@@ -122,6 +126,7 @@ const allApps = computed<InstalledApp[]>(() => {
     const entry = {
       ...app,
       installed: app.installed ?? true,
+      configured: isConfiguredPackage(app.packageName),
     }
 
     const idx = result.length
@@ -133,7 +138,7 @@ const allApps = computed<InstalledApp[]>(() => {
   }
 
   // 合并配置项：如果包名不同（即使归一化后相同），也应显示为不同应用
-  for (const app of configuredApps.value) {
+  for (const app of configuredPackageState.value.configuredApps) {
     if (packageIndex.has(app.packageName)) continue
 
     // 查找具有相同归一化包名的已存在应用，复用其展示信息
@@ -147,6 +152,7 @@ const allApps = computed<InstalledApp[]>(() => {
       appName: existingIdx !== undefined ? result[existingIdx].appName : app.packageName,
       installed: existingIdx !== undefined ? result[existingIdx].installed : app.installed,
       isSystem: existingIdx !== undefined ? result[existingIdx].isSystem : app.isSystem,
+      configured: true,
     }
 
     const idx = result.length
@@ -158,23 +164,13 @@ const allApps = computed<InstalledApp[]>(() => {
 })
 
 const visibleApps = computed(() =>
-  allApps.value.filter(
-    (app) =>
-      showSystemApps.value ||
-      app.isSystem !== true ||
-      configStore.isPackageConfigured(app.packageName)
-  )
+  allApps.value.filter((app) => showSystemApps.value || app.isSystem !== true || app.configured)
 )
 
-const hasRenderableApps = computed(() => visibleApps.value.length > 0)
-const initialPageLoading = computed(
-  () => !hasRenderableApps.value && (isInitializing.value || appsStore.loading)
-)
+const initialPageLoading = computed(() => isInitializing.value)
 const backgroundLoading = computed(() => appsStore.loading && !initialPageLoading.value)
 
-const configuredCount = computed(
-  () => visibleApps.value.filter((app) => configStore.isPackageConfigured(app.packageName)).length
-)
+const configuredCount = computed(() => visibleApps.value.filter((app) => app.configured).length)
 
 const filteredApps = computed(() => {
   let apps = visibleApps.value
@@ -187,7 +183,7 @@ const filteredApps = computed(() => {
   }
 
   if (filterType.value === 'configured') {
-    apps = apps.filter((app) => configStore.isPackageConfigured(app.packageName))
+    apps = apps.filter((app) => app.configured)
   }
 
   return apps.slice().sort((a, b) => {
@@ -215,38 +211,27 @@ function handleConfigSaved() {
 }
 
 async function loadApps(includeSystem: boolean) {
-  await appsStore.loadInstalledApps({
-    includeSystem,
-    resolvePackages: configuredPackageNames.value,
-  })
+  await appsStore.ensureUserAppsLoaded()
   isInitializing.value = false
+
+  void appsStore.resolvePackagesInfo(configuredPackageState.value.packages)
+  if (includeSystem) {
+    void appsStore.ensureSystemAppsLoaded()
+  }
 }
 
 onMounted(async () => {
-  if (!appsStore.hasLoadedUserApps && !appsStore.loading) {
-    requestAnimationFrame(() => {
-      void loadApps(showSystemApps.value)
-    })
-  } else {
-    isInitializing.value = false
-    await appsStore.resolvePackagesInfo(configuredPackageNames.value)
-    if (showSystemApps.value) {
-      await appsStore.loadInstalledApps({ includeSystem: true })
-    }
-  }
+  await loadApps(showSystemApps.value)
 })
 
 watch(showSystemApps, (enabled, previous) => {
   if (enabled && enabled !== previous) {
-    void appsStore.loadInstalledApps({
-      includeSystem: true,
-      resolvePackages: configuredPackageNames.value,
-    })
+    void appsStore.ensureSystemAppsLoaded()
   }
 })
 
 watch(
-  configuredPackageNames,
+  () => configuredPackageState.value.packages,
   (packages) => {
     if (!packages.length) return
     void appsStore.resolvePackagesInfo(packages)

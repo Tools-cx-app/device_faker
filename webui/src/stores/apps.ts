@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { InstalledApp } from '../types'
 import { getAppsInfo, getInstalledApps } from '../utils/ksu'
 import { normalizePackageName } from '../utils/package'
@@ -11,12 +11,26 @@ interface LoadInstalledAppsOptions {
 
 export const useAppsStore = defineStore('apps', () => {
   const installedApps = ref<InstalledApp[]>([])
-  const loading = ref(false)
+  const pendingRequests = ref(0)
+  const loading = computed(() => pendingRequests.value > 0)
   const error = ref<string | null>(null)
   const searchQuery = ref('')
   const hasLoadedUserApps = ref(false)
   const hasLoadedSystemApps = ref(false)
   const resolvedPackages = new Set<string>()
+  const resolvingPackages = new Set<string>()
+
+  let userAppsLoadPromise: Promise<void> | null = null
+  let systemAppsLoadPromise: Promise<void> | null = null
+
+  async function runWithLoading<T>(task: () => Promise<T>) {
+    pendingRequests.value += 1
+    try {
+      return await task()
+    } finally {
+      pendingRequests.value = Math.max(0, pendingRequests.value - 1)
+    }
+  }
 
   function mergeInstalledApp(
     existing: InstalledApp | undefined,
@@ -51,7 +65,10 @@ export const useAppsStore = defineStore('apps', () => {
         packageNames
           .map((pkg) => pkg.trim())
           .filter(Boolean)
-          .filter((pkg) => !resolvedPackages.has(normalizePackageName(pkg)))
+          .filter((pkg) => {
+            const normalized = normalizePackageName(pkg)
+            return !resolvedPackages.has(normalized) && !resolvingPackages.has(normalized)
+          })
       )
     )
 
@@ -59,29 +76,26 @@ export const useAppsStore = defineStore('apps', () => {
       return
     }
 
-    const apps = await getAppsInfo(unresolved)
-    for (const packageName of unresolved) {
-      resolvedPackages.add(normalizePackageName(packageName))
-    }
-    upsertInstalledApps(apps.filter((app) => app.installed === true))
+    const normalizedPackages = unresolved.map((pkg) => normalizePackageName(pkg))
+    normalizedPackages.forEach((pkg) => resolvingPackages.add(pkg))
+
+    await runWithLoading(async () => {
+      const apps = await getAppsInfo(unresolved)
+      normalizedPackages.forEach((pkg) => resolvedPackages.add(pkg))
+      upsertInstalledApps(apps.filter((app) => app.installed === true))
+    }).finally(() => {
+      normalizedPackages.forEach((pkg) => resolvingPackages.delete(pkg))
+    })
   }
 
-  // 加载已安装应用列表
-  async function loadInstalledApps(options: LoadInstalledAppsOptions = {}) {
-    const { includeSystem = false, resolvePackages = [] } = options
-
-    if (
-      hasLoadedUserApps.value &&
-      (!includeSystem || hasLoadedSystemApps.value) &&
-      resolvePackages.every((pkg) => resolvedPackages.has(normalizePackageName(pkg)))
-    ) {
+  async function ensureUserAppsLoaded() {
+    if (hasLoadedUserApps.value) {
       return
     }
 
-    loading.value = true
-    error.value = null
-    try {
-      if (!hasLoadedUserApps.value) {
+    if (!userAppsLoadPromise) {
+      userAppsLoadPromise = runWithLoading(async () => {
+        error.value = null
         upsertInstalledApps(
           (await getInstalledApps({ packageType: 'user' })).map((app) => ({
             ...app,
@@ -90,9 +104,29 @@ export const useAppsStore = defineStore('apps', () => {
           }))
         )
         hasLoadedUserApps.value = true
-      }
+      })
+        .catch((e) => {
+          error.value = e instanceof Error ? e.message : String(e)
+          throw e
+        })
+        .finally(() => {
+          userAppsLoadPromise = null
+        })
+    }
 
-      if (includeSystem && !hasLoadedSystemApps.value) {
+    return userAppsLoadPromise
+  }
+
+  async function ensureSystemAppsLoaded() {
+    if (hasLoadedSystemApps.value) {
+      return
+    }
+
+    await ensureUserAppsLoaded()
+
+    if (!systemAppsLoadPromise) {
+      systemAppsLoadPromise = runWithLoading(async () => {
+        error.value = null
         upsertInstalledApps(
           (await getInstalledApps({ packageType: 'system' })).map((app) => ({
             ...app,
@@ -101,13 +135,31 @@ export const useAppsStore = defineStore('apps', () => {
           }))
         )
         hasLoadedSystemApps.value = true
-      }
+      })
+        .catch((e) => {
+          error.value = e instanceof Error ? e.message : String(e)
+          throw e
+        })
+        .finally(() => {
+          systemAppsLoadPromise = null
+        })
+    }
 
+    return systemAppsLoadPromise
+  }
+
+  // 加载已安装应用列表
+  async function loadInstalledApps(options: LoadInstalledAppsOptions = {}) {
+    const { includeSystem = false, resolvePackages = [] } = options
+
+    try {
+      await ensureUserAppsLoaded()
+      if (includeSystem) {
+        await ensureSystemAppsLoaded()
+      }
       await resolvePackagesInfo(resolvePackages)
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
-    } finally {
-      loading.value = false
     }
   }
 
@@ -135,6 +187,8 @@ export const useAppsStore = defineStore('apps', () => {
     searchQuery,
     hasLoadedUserApps,
     hasLoadedSystemApps,
+    ensureUserAppsLoaded,
+    ensureSystemAppsLoaded,
     loadInstalledApps,
     resolvePackagesInfo,
     searchApps,
