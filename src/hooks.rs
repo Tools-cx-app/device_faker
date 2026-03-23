@@ -2,7 +2,7 @@ use std::ffi::{CStr, CString};
 
 use anyhow::Context;
 use jni::{
-    Env, EnvUnowned, jni_str, jni_sig,
+    Env, EnvUnowned, jni_sig, jni_str,
     objects::{JClass, JString, JValue},
     strings::JNIStr,
     sys::JNINativeMethod,
@@ -19,10 +19,12 @@ static mut ORIGINAL_SYSTEM_PROPERTY_GET: Option<
 > = None;
 
 /// 根据合并配置 Hook android.os.Build 的静态字段。
-pub fn hook_build_fields(env: &mut EnvUnowned, merged_config: &MergedAppConfig) -> anyhow::Result<()> {
+pub fn hook_build_fields(
+    env: &mut EnvUnowned,
+    merged_config: &MergedAppConfig,
+) -> anyhow::Result<()> {
     env.with_env(|jenv| -> Result<(), jni::errors::Error> {
-        let build_class = jenv
-            .find_class(jni_str!("android/os/Build"))?;
+        let build_class = jenv.find_class(jni_str!("android/os/Build"))?;
 
         if let Some(manufacturer) = &merged_config.manufacturer
             && !manufacturer.is_empty()
@@ -70,7 +72,8 @@ pub fn hook_build_fields(env: &mut EnvUnowned, merged_config: &MergedAppConfig) 
             .map_err(|_e| jni::errors::Error::JniCall(jni::errors::JniError::Unknown))?;
 
         Ok(())
-    }).resolve::<jni::errors::ThrowRuntimeExAndDefault>();
+    })
+    .resolve::<jni::errors::ThrowRuntimeExAndDefault>();
     Ok(())
 }
 
@@ -104,14 +107,19 @@ fn set_build_field(
 ) -> anyhow::Result<()> {
     let _field_id = env
         .get_static_field_id(build_class, field_name, jni_sig!("Ljava/lang/String;"))
-        .with_context(|| format!("Failed to get field ID"))?;
+        .with_context(|| "Failed to get field ID".to_string())?;
 
     let new_value = env
         .new_string(value)
         .with_context(|| format!("Failed to create string for {value}"))?;
 
-    env.set_static_field(build_class, field_name, jni_sig!("Ljava/lang/String;"), JValue::Object(&new_value))
-        .with_context(|| format!("Failed to set field"))?;
+    env.set_static_field(
+        build_class,
+        field_name,
+        jni_sig!("Ljava/lang/String;"),
+        JValue::Object(&new_value),
+    )
+    .with_context(|| "Failed to set field".to_string())?;
 
     Ok(())
 }
@@ -124,10 +132,10 @@ fn set_build_int_field(
 ) -> anyhow::Result<()> {
     let _field_id = env
         .get_static_field_id(build_class, field_name, jni_sig!("I"))
-        .with_context(|| format!("Failed to get field ID"))?;
+        .with_context(|| "Failed to get field ID".to_string())?;
 
     env.set_static_field(build_class, field_name, jni_sig!("I"), JValue::Int(value))
-        .with_context(|| format!("Failed to set field"))?;
+        .with_context(|| "Failed to set field".to_string())?;
 
     Ok(())
 }
@@ -136,7 +144,9 @@ fn set_build_int_field(
 pub fn hook_system_properties(api: &mut ZygiskApi<V4>, env: &mut EnvUnowned) -> anyhow::Result<()> {
     let mut methods = [JNINativeMethod {
         name: c"native_get".as_ptr().cast_mut(),
-        signature: c"(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;".as_ptr().cast_mut(),
+        signature: c"(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;"
+            .as_ptr()
+            .cast_mut(),
         fnPtr: native_get_hook as *mut std::ffi::c_void,
     }];
 
@@ -149,7 +159,8 @@ pub fn hook_system_properties(api: &mut ZygiskApi<V4>, env: &mut EnvUnowned) -> 
             api.hook_jni_native_methods(env_unowned, class_name, &mut methods);
         }
         Ok(())
-    }).resolve::<jni::errors::ThrowRuntimeExAndDefault>();
+    })
+    .resolve::<jni::errors::ThrowRuntimeExAndDefault>();
 
     let original_fn_ptr = unsafe {
         std::mem::transmute::<*mut std::ffi::c_void, OriginalNativeGet>(methods[0].fnPtr)
@@ -176,13 +187,11 @@ pub unsafe extern "C" fn native_get_hook(
         };
 
         let fake_props = FAKE_PROPS.lock().unwrap();
-        if let Some(props) = fake_props.as_ref() {
-            if let Some(fake_value) = props.get(&key_string) {
-                if let Ok(new_string) = jenv.new_string(fake_value) {
+        if let Some(props) = fake_props.as_ref()
+            && let Some(fake_value) = props.get(&key_string)
+                && let Ok(new_string) = jenv.new_string(fake_value) {
                     return Ok(new_string.into_raw());
                 }
-            }
-        }
 
         let original_native_get = ORIGINAL_NATIVE_GET.lock().unwrap();
         if let Some(orig_fn) = *original_native_get {

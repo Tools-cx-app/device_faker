@@ -162,24 +162,26 @@ impl MyModule {
         env: &mut EnvUnowned,
         args: &mut <V4 as ZygiskRaw>::AppSpecializeArgs,
     ) -> anyhow::Result<String> {
-        let result: String = env.with_env(|_jenv| -> Result<String, jni::errors::Error> {
-            let app_data_dir = args.app_data_dir.to_string();
-            
-            if let Some(package) = app_data_dir.rsplit('/').next()
-                && !package.is_empty()
-            {
-                return Ok(package.to_string());
-            }
+        let result: String = env
+            .with_env(|_jenv| -> Result<String, jni::errors::Error> {
+                let app_data_dir = args.app_data_dir.to_string();
 
-            let nice_name = args.nice_name.to_string();
+                if let Some(package) = app_data_dir.rsplit('/').next()
+                    && !package.is_empty()
+                {
+                    return Ok(package.to_string());
+                }
 
-            let mut nice_name: String = nice_name;
-            if let Some(idx) = nice_name.find(':') {
-                nice_name.truncate(idx);
-            }
+                let nice_name = args.nice_name.to_string();
 
-            Ok(nice_name)
-        }).resolve::<ThrowRuntimeExAndDefault>();
+                let mut nice_name: String = nice_name;
+                if let Some(idx) = nice_name.find(':') {
+                    nice_name.truncate(idx);
+                }
+
+                Ok(nice_name)
+            })
+            .resolve::<ThrowRuntimeExAndDefault>();
         Ok(result)
     }
 
