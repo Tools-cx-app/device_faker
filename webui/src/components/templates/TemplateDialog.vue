@@ -307,6 +307,7 @@ async function saveTemplate() {
   }
 
   const template: Template = {
+    ...(props.templateData || {}),
     manufacturer: formData.value.manufacturer,
     brand: formData.value.brand,
     model: formData.value.model,
@@ -317,25 +318,37 @@ async function saveTemplate() {
 
   if (formData.value.android_version) {
     template.android_version = formData.value.android_version
+  } else {
+    delete template.android_version
   }
 
   if (formData.value.sdk_int) {
     const sdkInt = Number(formData.value.sdk_int)
     if (!isNaN(sdkInt)) {
       template.sdk_int = sdkInt
+    } else {
+      delete template.sdk_int
     }
+  } else {
+    delete template.sdk_int
   }
 
   if (formData.value.name_field) {
     template.name = formData.value.name_field
+  } else {
+    delete template.name
   }
 
   if (formData.value.marketname) {
     template.marketname = formData.value.marketname
+  } else {
+    delete template.marketname
   }
 
   if (formData.value.characteristics) {
     template.characteristics = formData.value.characteristics
+  } else {
+    delete template.characteristics
   }
 
   if (formData.value.force_denylist_unmount !== undefined) {
@@ -344,13 +357,17 @@ async function saveTemplate() {
 
   if (formData.value.mode) {
     template.mode = formData.value.mode as 'lite' | 'full' | 'resetprop'
+  } else {
+    delete template.mode
   }
 
   if (formData.value.packages.length > 0) {
     template.packages = formData.value.packages
+  } else {
+    delete template.packages
   }
 
-  configStore.setTemplate(formData.value.name, template)
+  configStore.setTemplate(formData.value.name, template, { replace: true })
 
   try {
     await configStore.saveConfig()

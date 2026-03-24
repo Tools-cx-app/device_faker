@@ -173,9 +173,14 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   // 添加或更新模板
-  function setTemplate(name: string, template: Template) {
+  function setTemplate(name: string, template: Template, options?: { replace?: boolean }) {
     if (!config.value.templates) {
       config.value.templates = {}
+    }
+
+    if (options?.replace) {
+      config.value.templates[name] = template
+      return
     }
 
     config.value.templates[name] = mergeTemplateWithExisting(config.value.templates[name], template)
