@@ -3,7 +3,7 @@
     <div class="settings-section glass-effect">
       <h2 class="section-title">{{ t('settings.display.title') }}</h2>
 
-      <div class="setting-item">
+      <div class="setting-item setting-item-split">
         <div class="setting-info">
           <div class="setting-icon">
             <Moon :size="24" />
@@ -20,7 +20,7 @@
         </el-select>
       </div>
 
-      <div class="setting-item">
+      <div class="setting-item setting-item-split">
         <div class="setting-info">
           <div class="setting-icon">
             <Globe :size="24" />
@@ -35,6 +35,25 @@
           <el-option :label="t('settings.display.language.zh')" value="zh" />
           <el-option :label="t('settings.display.language.en')" value="en" />
         </el-select>
+      </div>
+    </div>
+
+    <div class="settings-section glass-effect">
+      <h2 class="section-title">{{ t('settings.tools.title') }}</h2>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-icon">
+            <FileUp :size="24" />
+          </div>
+          <div class="setting-text">
+            <h3 class="setting-name">{{ t('settings.tools.convert.label') }}</h3>
+            <p class="setting-desc">{{ t('settings.tools.convert.desc') }}</p>
+          </div>
+        </div>
+        <el-button type="primary" :loading="converting" @click="startConversion">
+          {{ t('settings.tools.convert.btn') }}
+        </el-button>
       </div>
     </div>
 
@@ -97,25 +116,6 @@
           </div>
         </div>
         <el-switch v-model="debugMode" class="setting-control-switch" @change="onDebugChange" />
-      </div>
-    </div>
-
-    <div class="settings-section glass-effect">
-      <h2 class="section-title">{{ t('settings.tools.title') }}</h2>
-
-      <div class="setting-item">
-        <div class="setting-info">
-          <div class="setting-icon">
-            <FileUp :size="24" />
-          </div>
-          <div class="setting-text">
-            <h3 class="setting-name">{{ t('settings.tools.convert.label') }}</h3>
-            <p class="setting-desc">{{ t('settings.tools.convert.desc') }}</p>
-          </div>
-        </div>
-        <el-button type="primary" :loading="converting" @click="startConversion">
-          {{ t('settings.tools.convert.btn') }}
-        </el-button>
       </div>
     </div>
 
@@ -539,6 +539,32 @@ onActivated(() => {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+}
+
+.setting-item-split {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.setting-item-split .setting-info {
+  min-width: 0;
+}
+
+.setting-item-split .setting-name {
+  white-space: normal;
+  text-overflow: clip;
+}
+
+.setting-item-split .setting-desc {
+  overflow-wrap: anywhere;
+}
+
+.setting-item-split .setting-control {
+  width: clamp(7rem, 30vw, 11rem);
+  min-width: 7rem;
+  flex-shrink: 1;
 }
 
 .setting-control-switch {
