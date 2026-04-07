@@ -10,6 +10,7 @@
         :locale="locale"
         @open-online="showOnlineLibrary"
         @open-create="showCreateDialog"
+        @open-transfer="showTransferDialog"
         @search="handleSearch"
       />
 
@@ -29,6 +30,8 @@
         :template-data="editingTemplate"
         @saved="handleTemplateSaved"
       />
+
+      <TemplateTransferDialog v-if="transferDialogVisible" v-model="transferDialogVisible" />
     </template>
   </div>
 </template>
@@ -47,6 +50,9 @@ import type { Template } from '../types'
 
 const TemplateDialog = defineAsyncComponent(
   () => import('../components/templates/TemplateDialog.vue')
+)
+const TemplateTransferDialog = defineAsyncComponent(
+  () => import('../components/templates/TemplateTransferDialog.vue')
 )
 
 const configStore = useConfigStore()
@@ -94,6 +100,7 @@ function handleSearch(query: string) {
 }
 
 const dialogVisible = ref(false)
+const transferDialogVisible = ref(false)
 const isEditing = ref(false)
 const editingTemplateName = ref<string | null>(null)
 const editingTemplate = ref<Template | null>(null)
@@ -112,6 +119,10 @@ function showCreateDialog() {
   editingTemplateName.value = null
   editingTemplate.value = null
   dialogVisible.value = true
+}
+
+function showTransferDialog() {
+  transferDialogVisible.value = true
 }
 
 function handleEdit(name: string, template: Template) {

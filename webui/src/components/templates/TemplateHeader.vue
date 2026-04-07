@@ -16,12 +16,16 @@
       </div>
       <div class="header-actions" :class="{ 'vertical-layout': locale === 'en' }">
         <button class="add-btn secondary" @click="emit('open-online')">
-          <Download :size="20" />
+          <Download :size="18" />
           {{ t('templates.actions.online') }}
         </button>
         <button class="add-btn" @click="emit('open-create')">
-          <Plus :size="20" />
+          <Plus :size="18" />
           {{ t('templates.actions.new') }}
+        </button>
+        <button class="add-btn secondary" @click="emit('open-transfer')">
+          <ArrowLeftRight :size="18" />
+          {{ t('templates.actions.transfer') }}
         </button>
       </div>
     </div>
@@ -29,13 +33,18 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, Download, Search, X } from 'lucide-vue-next'
+import { ArrowLeftRight, Plus, Download, Search, X } from 'lucide-vue-next'
 import { toRefs, ref, watch } from 'vue'
 import { useI18n } from '../../utils/i18n'
 
 const props = defineProps<{ locale: string }>()
 const { locale } = toRefs(props)
-const emit = defineEmits<{ 'open-online': []; 'open-create': []; search: [string] }>()
+const emit = defineEmits<{
+  'open-online': []
+  'open-create': []
+  'open-transfer': []
+  search: [string]
+}>()
 
 const { t } = useI18n()
 const searchQuery = ref('')
@@ -74,13 +83,24 @@ watch(searchQuery, (value) => {
 
 .header-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.375rem;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .header-actions.vertical-layout {
-  flex-direction: column;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  gap: 0.375rem;
+}
+
+.header-actions.vertical-layout .add-btn {
+  width: 100%;
+}
+
+.header-actions.vertical-layout .add-btn:last-child {
+  grid-column: 1 / -1;
 }
 
 .search-wrapper {
@@ -138,19 +158,41 @@ watch(searchQuery, (value) => {
 .add-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.625rem 0.75rem;
+  min-width: 0;
   background: var(--primary);
   color: white;
   border: none;
   border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.1;
   transition: all 0.2s ease;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
   white-space: nowrap;
+}
+
+.add-btn :deep(svg) {
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .header-toolbar {
+    align-items: stretch;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+
+  .add-btn {
+    flex: 1 1 calc(33.333% - 0.25rem);
+    padding-inline: 0.625rem;
+  }
 }
 
 .add-btn.secondary {

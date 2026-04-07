@@ -18,6 +18,7 @@ declare module 'vue' {
     ElAutocomplete: typeof import('element-plus/es')['ElAutocomplete']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElCheckbox: typeof import('element-plus/es')['ElCheckbox']
+    ElCheckboxGroup: typeof import('element-plus/es')['ElCheckboxGroup']
     ElCollapse: typeof import('element-plus/es')['ElCollapse']
     ElCollapseItem: typeof import('element-plus/es')['ElCollapseItem']
     ElDialog: typeof import('element-plus/es')['ElDialog']
@@ -34,5 +35,6 @@ declare module 'vue' {
     TemplateDialog: typeof import('./src/components/templates/TemplateDialog.vue')['default']
     TemplateHeader: typeof import('./src/components/templates/TemplateHeader.vue')['default']
     TemplateList: typeof import('./src/components/templates/TemplateList.vue')['default']
+    TemplateTransferDialog: typeof import('./src/components/templates/TemplateTransferDialog.vue')['default']
   }
 }

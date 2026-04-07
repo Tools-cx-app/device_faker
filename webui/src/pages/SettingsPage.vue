@@ -162,10 +162,16 @@ import { Moon, Globe, Settings, Bug, FileUp, Shield } from 'lucide-vue-next'
 import { useConfigStore } from '../stores/config'
 import { useSettingsStore } from '../stores/settings'
 import { execCommand, readFile } from '../utils/ksu'
-import { parse as parseToml } from 'smol-toml'
 import { useI18n } from '../utils/i18n'
 import { toast } from 'kernelsu-alt'
 import type { Template } from '../types'
+import {
+  convertZipOnDevice,
+  createDeviceTempPath,
+  parseFirstTemplateFromToml,
+  shellQuote,
+  uploadFileToDevice,
+} from '../utils/templateTransfer'
 
 const configStore = useConfigStore()
 const settingsStore = useSettingsStore()
@@ -182,8 +188,6 @@ const converting = ref(false)
 const convertedTemplate = ref<Template | null>(null)
 const convertedTemplateName = ref('')
 const convertedContent = ref('')
-const cliPath = '/data/adb/modules/device_faker/bin/device_faker_cli'
-const maxChunkSize = 96 * 1024
 
 function onThemeChange(value: string) {
   settingsStore.setTheme(value as 'system' | 'light' | 'dark')
@@ -223,18 +227,6 @@ async function onDebugChange(value: boolean) {
   }
 }
 
-function fileToBase64(chunk: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result as string
-      resolve(result.split(',')[1] || '')
-    }
-    reader.onerror = (err) => reject(err)
-    reader.readAsDataURL(chunk)
-  })
-}
-
 function pickZipFile(): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input')
@@ -249,107 +241,12 @@ function pickZipFile(): Promise<File | null> {
   })
 }
 
-function escapeShellPath(path: string): string {
-  return path.replace(/'/g, "'\\''")
-}
-
-async function uploadZipToDevice(file: File, targetPath: string) {
-  const dirEnd = targetPath.lastIndexOf('/')
-  const targetDir = dirEnd > 0 ? targetPath.slice(0, dirEnd) : '/data/local/tmp'
-  await execCommand(`mkdir -p "${targetDir}"`)
-
-  const chunkSize =
-    file.size > maxChunkSize * 4 ? maxChunkSize : Math.max(4096, Math.ceil(file.size / 4))
-  const totalChunks = Math.ceil((file.size || 1) / chunkSize)
-  try {
-    for (let index = 0; index < totalChunks; index++) {
-      const start = index * chunkSize
-      const end = Math.min(start + chunkSize, file.size)
-      const chunk = file.slice(start, end)
-      const base64 = await fileToBase64(chunk)
-      const partPath = `${targetPath}.part${index.toString().padStart(8, '0')}`
-      await execCommand(`echo '${base64}' | base64 -d > "${partPath}"`)
-    }
-
-    await execCommand(`cat "${targetPath}".part* > "${targetPath}" && rm -f "${targetPath}".part*`)
-  } catch (err) {
-    await execCommand(`rm -f "${targetPath}" "${targetPath}".part*`).catch(() => {})
-    throw err
-  }
-}
-
-async function convertZipOnDevice(zipPath: string, outputPath: string) {
-  await execCommand(
-    `${cliPath} convert -i '${escapeShellPath(zipPath)}' -o '${escapeShellPath(outputPath)}'`
-  )
-}
-
-function parseTemplateFromToml(outputContent: string): {
-  templateData: Template
-  defaultName: string
-} {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let parsed: any
-  try {
-    parsed = parseToml(outputContent)
-  } catch {
-    throw new Error('Invalid TOML output from CLI')
-  }
-
-  let templateData: Template | null = null
-  let defaultName = 'imported_template'
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isTemplate = (obj: any): boolean => {
-    return obj && typeof obj === 'object' && (obj.manufacturer || obj.model || obj.brand)
-  }
-
-  if (isTemplate(parsed)) {
-    templateData = parsed as Template
-  } else if (parsed.templates && typeof parsed.templates === 'object') {
-    for (const key of Object.keys(parsed.templates)) {
-      const val = parsed.templates[key]
-      if (isTemplate(val)) {
-        defaultName = key
-        templateData = val
-        break
-      }
-      if (val && typeof val === 'object') {
-        for (const subKey of Object.keys(val)) {
-          const subVal = val[subKey]
-          if (isTemplate(subVal)) {
-            defaultName = subKey
-            templateData = subVal
-            break
-          }
-        }
-      }
-      if (templateData) break
-    }
-  } else {
-    for (const key of Object.keys(parsed)) {
-      const val = parsed[key]
-      if (isTemplate(val)) {
-        defaultName = key
-        templateData = val
-        break
-      }
-    }
-  }
-
-  if (!templateData) {
-    throw new Error('Could not find valid template data in CLI output')
-  }
-
-  return { templateData, defaultName }
-}
-
 async function startConversion() {
   if (converting.value) return
 
   if (import.meta.env?.DEV) {
     const { mockConfig } = await import('../utils/mockData')
-    const { templateData, defaultName } = parseTemplateFromToml(mockConfig)
+    const { templateData, defaultName } = parseFirstTemplateFromToml(mockConfig)
     convertedTemplate.value = templateData
     convertedTemplateName.value = defaultName
     convertedContent.value = mockConfig
@@ -363,12 +260,11 @@ async function startConversion() {
   }
 
   converting.value = true
-  const timestamp = Date.now()
-  const tempZipPath = `/data/local/tmp/device_faker_convert_${timestamp}.zip`
-  const tempOutputPath = `/data/local/tmp/device_faker_convert_${timestamp}.toml`
+  const tempZipPath = createDeviceTempPath('device_faker_convert', '.zip')
+  const tempOutputPath = createDeviceTempPath('device_faker_convert', '.toml')
 
   try {
-    await uploadZipToDevice(file, tempZipPath)
+    await uploadFileToDevice(file, tempZipPath)
     await convertZipOnDevice(tempZipPath, tempOutputPath)
 
     const outputContent = await readFile(tempOutputPath)
@@ -377,7 +273,7 @@ async function startConversion() {
       return
     }
 
-    const { templateData, defaultName } = parseTemplateFromToml(outputContent)
+    const { templateData, defaultName } = parseFirstTemplateFromToml(outputContent)
     convertedTemplate.value = templateData
     convertedTemplateName.value = defaultName
     convertedContent.value = outputContent
@@ -389,7 +285,9 @@ async function startConversion() {
     console.error(err)
   } finally {
     converting.value = false
-    await execCommand(`rm -f "${tempZipPath}" "${tempOutputPath}"`).catch(() => {})
+    await execCommand(`rm -f ${shellQuote(tempZipPath)} ${shellQuote(tempOutputPath)}`).catch(
+      () => {}
+    )
   }
 }
 
