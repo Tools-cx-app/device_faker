@@ -4,10 +4,10 @@ use std::{
     io::{Read, Write},
     os::unix::net::UnixStream,
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
-use log::{error, warn};
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use zygisk_api::api::{V4, ZygiskApi};
 
@@ -213,7 +213,13 @@ fn apply_resetprop_session(
         resetprop_delete(&resetprop_path, key)?;
     }
 
-    spawn_restore_watcher(request.pid, backups, resetprop_path)?;
+    spawn_restore_watcher(
+        request.pid,
+        request.props,
+        request.delete_props,
+        backups,
+        resetprop_path,
+    )?;
 
     Ok(backups_for_response)
 }
@@ -269,6 +275,8 @@ fn resetprop_delete(path: &str, key: &str) -> anyhow::Result<()> {
 
 fn spawn_restore_watcher(
     pid: u32,
+    props: HashMap<String, String>,
+    delete_props: Vec<String>,
     backups: Vec<PropBackup>,
     resetprop_path: String,
 ) -> anyhow::Result<()> {
@@ -279,16 +287,14 @@ fn spawn_restore_watcher(
                 if libc::setsid() == -1 {
                     libc::_exit(1);
                 }
-                wait_for_process_inactive(pid);
-                for entry in backups {
-                    if let Err(e) =
-                        apply_resetprop(&resetprop_path, &entry.key, &entry.original_value)
-                    {
-                        error!(
-                            "Failed to restore property {} for pid {}: {}",
-                            entry.key, pid, e
-                        );
-                    }
+                if let Err(e) = watch_process_state_and_sync_props(
+                    pid,
+                    &props,
+                    &delete_props,
+                    &backups,
+                    &resetprop_path,
+                ) {
+                    error!("Watcher failed for pid {}: {}", pid, e);
                 }
                 libc::_exit(0);
             }
@@ -297,19 +303,72 @@ fn spawn_restore_watcher(
     }
 }
 
-fn wait_for_process_inactive(pid: u32) {
+fn watch_process_state_and_sync_props(
+    pid: u32,
+    props: &HashMap<String, String>,
+    delete_props: &[String],
+    backups: &[PropBackup],
+    resetprop_path: &str,
+) -> anyhow::Result<()> {
+    const POLL_INTERVAL: Duration = Duration::from_millis(200);
+    const BACKGROUND_DEBOUNCE: Duration = Duration::from_secs(2);
+
     let proc_path = format!("/proc/{pid}");
+    let mut is_spoof_applied = true;
+    let mut background_since: Option<Instant> = None;
+
     loop {
         if !std::path::Path::new(&proc_path).exists() {
+            if is_spoof_applied {
+                restore_props_batch(resetprop_path, backups)?;
+            }
             break;
         }
 
-        if !is_process_in_top_app(pid) {
-            break;
+        if is_process_in_top_app(pid) {
+            background_since = None;
+            if !is_spoof_applied {
+                apply_props_batch(resetprop_path, props, delete_props)?;
+                is_spoof_applied = true;
+                info!("restore watcher re-applied spoof props for pid {}", pid);
+            }
+        } else {
+            let bg_start = background_since.get_or_insert_with(Instant::now);
+            if is_spoof_applied && bg_start.elapsed() >= BACKGROUND_DEBOUNCE {
+                restore_props_batch(resetprop_path, backups)?;
+                is_spoof_applied = false;
+                info!("restore watcher restored props for pid {}", pid);
+            }
         }
 
-        thread::sleep(Duration::from_millis(500));
+        thread::sleep(POLL_INTERVAL);
     }
+
+    Ok(())
+}
+
+fn apply_props_batch(
+    resetprop_path: &str,
+    props: &HashMap<String, String>,
+    delete_props: &[String],
+) -> anyhow::Result<()> {
+    for (key, value) in props {
+        apply_resetprop(resetprop_path, key, value)?;
+    }
+
+    for key in delete_props {
+        resetprop_delete(resetprop_path, key)?;
+    }
+
+    Ok(())
+}
+
+fn restore_props_batch(resetprop_path: &str, backups: &[PropBackup]) -> anyhow::Result<()> {
+    for entry in backups {
+        apply_resetprop(resetprop_path, &entry.key, &entry.original_value)?;
+    }
+
+    Ok(())
 }
 
 fn is_process_in_top_app(pid: u32) -> bool {
