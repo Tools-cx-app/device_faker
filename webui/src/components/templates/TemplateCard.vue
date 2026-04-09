@@ -116,7 +116,11 @@ import type { Template } from '../../types'
 
 const props = defineProps<{ name: string; template: Template }>()
 const { name, template } = toRefs(props)
-const emit = defineEmits<{ export: [string, Template]; edit: [string, Template]; delete: [string] }>()
+const emit = defineEmits<{
+  export: [string, Template]
+  edit: [string, Template]
+  delete: [string]
+}>()
 
 const { t } = useI18n()
 </script>

@@ -131,7 +131,11 @@
                 </span>
                 <span>{{ t('status.follow.qq_group') }}</span>
               </button>
-              <button class="community-link" type="button" @click="openExternalUrl(telegramUrl)">
+              <button
+                class="community-link"
+                type="button"
+                @click="openExternalUrl(telegramIntentUrl, telegramWebUrl)"
+              >
                 <span class="brand-logo telegram-logo" aria-hidden="true">
                   <svg viewBox="0 0 24 24" role="img">
                     <path :d="siTelegram.path" fill="currentColor" />
@@ -195,7 +199,8 @@ const followDialogVisible = ref(false)
 
 const qqGroupUrl =
   'https://qun.qq.com/universal-share/share?ac=1&authKey=ls4nlfcsF%2Bxp5SPnVsXRgpbeV1axPZb%2FmJCMXms6ZCHjgAwvOyl1LV%2BDNVL1btgL&busi_data=eyJncm91cENvZGUiOiI4NTQxODgyNTIiLCJ0b2tlbiI6IlE1WVVyZTZxUXVjZUtGUUxWSGFmbzkvMEd3UWNRSiszdklTZDhHejU0RDRyT0lWRTFqS3d4UGJSM1ltaXpkS3MiLCJ1aW4iOiIxMTA1NzgzMDMzIn0%3D&data=IbvhTKt9HwCSsCsl_610-rQ8p6H2NgLmxhEKkMcn-BMWPb86jygWBZJfWLQGm7J8LwpVV2yhPafxTMXYGkjRVA&svctype=4&tempid=h5_group_info'
-const telegramUrl = 'https://t.me/device_faker'
+const telegramIntentUrl = 'tg://resolve?domain=device_faker'
+const telegramWebUrl = 'https://t.me/device_faker'
 const repositoryUrl = 'https://github.com/Seyud/device_faker'
 const authorGithubUrl = 'https://github.com/Seyud'
 
@@ -219,13 +224,13 @@ function escapeShellArg(value: string) {
   return value.replace(/'/g, `'\\''`)
 }
 
-async function openExternalUrl(url: string) {
+async function openExternalUrl(url: string, fallbackUrl: string = url) {
   try {
     await execCommand(
       `am start -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d '${escapeShellArg(url)}' >/dev/null 2>&1`
     )
   } catch {
-    window.open(url, '_blank', 'noopener,noreferrer')
+    window.open(fallbackUrl, '_blank', 'noopener,noreferrer')
   } finally {
     followDialogVisible.value = false
   }

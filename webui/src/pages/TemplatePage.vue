@@ -139,7 +139,9 @@ async function handleExport(name: string, template: Template) {
     const content = stringifyTemplatesToToml({ [name]: template })
     const copied = await copyTextToClipboard(content)
     toast(
-      copied ? t('templates.messages.export_copy_success') : t('templates.messages.export_copy_failed')
+      copied
+        ? t('templates.messages.export_copy_success')
+        : t('templates.messages.export_copy_failed')
     )
   } catch (error) {
     console.error('Export template failed:', error)
