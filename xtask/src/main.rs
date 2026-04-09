@@ -144,10 +144,7 @@ fn build(release: bool, verbose: bool) -> Result<()> {
     let build_type = if release { "release" } else { "debug" };
     let package_path = Path::new("output").join(format!("device_faker-({build_type}).zip"));
 
-    let local_offset = UtcOffset::current_local_offset().ok();
-    if local_offset.is_none() {
-        eprintln!("warning: failed to detect local timezone offset, zip entry times will use UTC");
-    }
+    let local_offset = UtcOffset::from_hms(8, 0, 0).expect("UTC+8 offset should always be valid");
 
     zip_create_from_directory_with_options(&package_path, &temp_dir, |entry_path| {
         let mut options: FileOptions<'_, ()> = FileOptions::default()
@@ -167,13 +164,9 @@ fn build(release: bool, verbose: bool) -> Result<()> {
     Ok(())
 }
 
-fn zip_entry_modified_time(entry_path: &Path, local_offset: Option<UtcOffset>) -> Option<DateTime> {
+fn zip_entry_modified_time(entry_path: &Path, local_offset: UtcOffset) -> Option<DateTime> {
     let modified = fs::metadata(entry_path).ok()?.modified().ok()?;
-    let modified = OffsetDateTime::from(modified);
-    let modified = match local_offset {
-        Some(offset) => modified.to_offset(offset),
-        None => modified,
-    };
+    let modified = OffsetDateTime::from(modified).to_offset(local_offset);
 
     DateTime::try_from(modified).ok()
 }
