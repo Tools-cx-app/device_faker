@@ -8,6 +8,7 @@ use std::{
 };
 
 use log::{error, info, warn};
+use prop_rs_android::resetprop::ResetProp;
 use serde::{Deserialize, Serialize};
 use zygisk_api::api::{V4, ZygiskApi};
 
@@ -179,9 +180,6 @@ fn apply_resetprop_session(
         return Ok(HashMap::new());
     }
 
-    let resetprop_path = find_resetprop_path()
-        .ok_or_else(|| anyhow::anyhow!("resetprop binary not found in known locations"))?;
-
     let mut backups = Vec::with_capacity(request.props.len() + request.delete_props.len());
 
     for key in request.props.keys() {
@@ -206,20 +204,14 @@ fn apply_resetprop_session(
         .collect();
 
     for (key, value) in &request.props {
-        apply_resetprop(&resetprop_path, key, value)?;
+        apply_resetprop(key, value)?;
     }
 
     for key in &request.delete_props {
-        resetprop_delete(&resetprop_path, key)?;
+        resetprop_delete(key)?;
     }
 
-    spawn_restore_watcher(
-        request.pid,
-        request.props,
-        request.delete_props,
-        backups,
-        resetprop_path,
-    )?;
+    spawn_restore_watcher(request.pid, request.props, request.delete_props, backups)?;
 
     Ok(backups_for_response)
 }
@@ -229,11 +221,8 @@ fn restore_properties(request: RestoreRequest) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let resetprop_path = find_resetprop_path()
-        .ok_or_else(|| anyhow::anyhow!("resetprop binary not found in known locations"))?;
-
     for (key, value) in request.props {
-        apply_resetprop(&resetprop_path, &key, &value)?;
+        apply_resetprop(&key, &value)?;
     }
 
     Ok(())
@@ -251,23 +240,31 @@ fn backup_property(key: &str) -> anyhow::Result<String> {
     Ok(value)
 }
 
-fn apply_resetprop(path: &str, key: &str, value: &str) -> anyhow::Result<()> {
-    let status = std::process::Command::new(path)
-        .arg(key)
-        .arg(value)
-        .status()?;
-    if !status.success() {
+fn apply_resetprop(key: &str, value: &str) -> anyhow::Result<()> {
+    let rp = ResetProp {
+        skip_svc: true,
+        persistent: false,
+        persist_only: false,
+        verbose: false,
+        show_context: false,
+    };
+
+    if rp.set(key, value).is_err() {
         anyhow::bail!("resetprop failed for {key}");
     }
     Ok(())
 }
 
-fn resetprop_delete(path: &str, key: &str) -> anyhow::Result<()> {
-    let status = std::process::Command::new(path)
-        .arg("--delete")
-        .arg(key)
-        .status()?;
-    if !status.success() {
+fn resetprop_delete(key: &str) -> anyhow::Result<()> {
+    let rp = ResetProp {
+        skip_svc: true,
+        persistent: false,
+        persist_only: false,
+        verbose: false,
+        show_context: false,
+    };
+
+    if rp.delete(key).is_err() {
         anyhow::bail!("resetprop delete failed for {key}");
     }
     Ok(())
@@ -278,7 +275,6 @@ fn spawn_restore_watcher(
     props: HashMap<String, String>,
     delete_props: Vec<String>,
     backups: Vec<PropBackup>,
-    resetprop_path: String,
 ) -> anyhow::Result<()> {
     unsafe {
         match libc::fork() {
@@ -287,13 +283,9 @@ fn spawn_restore_watcher(
                 if libc::setsid() == -1 {
                     libc::_exit(1);
                 }
-                if let Err(e) = watch_process_state_and_sync_props(
-                    pid,
-                    &props,
-                    &delete_props,
-                    &backups,
-                    &resetprop_path,
-                ) {
+                if let Err(e) =
+                    watch_process_state_and_sync_props(pid, &props, &delete_props, &backups)
+                {
                     error!("Watcher failed for pid {}: {}", pid, e);
                 }
                 libc::_exit(0);
@@ -308,7 +300,6 @@ fn watch_process_state_and_sync_props(
     props: &HashMap<String, String>,
     delete_props: &[String],
     backups: &[PropBackup],
-    resetprop_path: &str,
 ) -> anyhow::Result<()> {
     const POLL_INTERVAL: Duration = Duration::from_millis(200);
     const BACKGROUND_DEBOUNCE: Duration = Duration::from_secs(2);
@@ -320,7 +311,7 @@ fn watch_process_state_and_sync_props(
     loop {
         if !std::path::Path::new(&proc_path).exists() {
             if is_spoof_applied {
-                restore_props_batch(resetprop_path, backups)?;
+                restore_props_batch(backups)?;
             }
             break;
         }
@@ -328,14 +319,14 @@ fn watch_process_state_and_sync_props(
         if is_process_in_top_app(pid) {
             background_since = None;
             if !is_spoof_applied {
-                apply_props_batch(resetprop_path, props, delete_props)?;
+                apply_props_batch(props, delete_props)?;
                 is_spoof_applied = true;
                 info!("restore watcher re-applied spoof props for pid {}", pid);
             }
         } else {
             let bg_start = background_since.get_or_insert_with(Instant::now);
             if is_spoof_applied && bg_start.elapsed() >= BACKGROUND_DEBOUNCE {
-                restore_props_batch(resetprop_path, backups)?;
+                restore_props_batch(backups)?;
                 is_spoof_applied = false;
                 info!("restore watcher restored props for pid {}", pid);
             }
@@ -348,24 +339,23 @@ fn watch_process_state_and_sync_props(
 }
 
 fn apply_props_batch(
-    resetprop_path: &str,
     props: &HashMap<String, String>,
     delete_props: &[String],
 ) -> anyhow::Result<()> {
     for (key, value) in props {
-        apply_resetprop(resetprop_path, key, value)?;
+        apply_resetprop(key, value)?;
     }
 
     for key in delete_props {
-        resetprop_delete(resetprop_path, key)?;
+        resetprop_delete(key)?;
     }
 
     Ok(())
 }
 
-fn restore_props_batch(resetprop_path: &str, backups: &[PropBackup]) -> anyhow::Result<()> {
+fn restore_props_batch(backups: &[PropBackup]) -> anyhow::Result<()> {
     for entry in backups {
-        apply_resetprop(resetprop_path, &entry.key, &entry.original_value)?;
+        apply_resetprop(&entry.key, &entry.original_value)?;
     }
 
     Ok(())
@@ -377,31 +367,6 @@ fn is_process_in_top_app(pid: u32) -> bool {
         Ok(content) => content.lines().any(|line| line.contains("top-app")),
         Err(_) => true,
     }
-}
-
-fn find_resetprop_path() -> Option<String> {
-    let possible_paths = [
-        "/data/adb/ksu/bin/resetprop",
-        "/data/adb/magisk/resetprop",
-        "/debug_ramdisk/resetprop",
-        "/data/adb/ap/bin/resetprop",
-        "/system/bin/resetprop",
-        "/vendor/bin/resetprop",
-    ];
-
-    for path in possible_paths {
-        if std::path::Path::new(path).exists() {
-            return Some(path.to_string());
-        }
-    }
-
-    std::process::Command::new("which")
-        .arg("resetprop")
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
-        .filter(|path| !path.is_empty() && std::path::Path::new(path).exists())
 }
 
 #[derive(Serialize, Deserialize, Debug)]
