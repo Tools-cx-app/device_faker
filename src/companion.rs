@@ -8,7 +8,7 @@ use std::{
 };
 
 use log::{error, info, warn};
-use prop_rs_android::resetprop::ResetProp;
+use prop_rs_android::{resetprop::ResetProp, sys_prop};
 use serde::{Deserialize, Serialize};
 use zygisk_api::api::{V4, ZygiskApi};
 
@@ -240,14 +240,22 @@ fn backup_property(key: &str) -> anyhow::Result<String> {
     Ok(value)
 }
 
-fn apply_resetprop(key: &str, value: &str) -> anyhow::Result<()> {
-    let rp = ResetProp {
-        skip_svc: true,
+fn new_resetprop() -> anyhow::Result<ResetProp> {
+    sys_prop::init()
+        .map_err(|e| anyhow::anyhow!("failed to initialize system property API: {e}"))?;
+
+    Ok(ResetProp {
+        // Match the old external `resetprop key value` behavior instead of forcing `-n`.
+        skip_svc: false,
         persistent: false,
         persist_only: false,
         verbose: false,
         show_context: false,
-    };
+    })
+}
+
+fn apply_resetprop(key: &str, value: &str) -> anyhow::Result<()> {
+    let rp = new_resetprop()?;
 
     if rp.set(key, value).is_err() {
         anyhow::bail!("resetprop failed for {key}");
@@ -256,18 +264,13 @@ fn apply_resetprop(key: &str, value: &str) -> anyhow::Result<()> {
 }
 
 fn resetprop_delete(key: &str) -> anyhow::Result<()> {
-    let rp = ResetProp {
-        skip_svc: true,
-        persistent: false,
-        persist_only: false,
-        verbose: false,
-        show_context: false,
-    };
+    let rp = new_resetprop()?;
 
-    if rp.delete(key).is_err() {
-        anyhow::bail!("resetprop delete failed for {key}");
+    match rp.delete(key) {
+        Ok(true) => Ok(()),
+        Ok(false) => anyhow::bail!("resetprop delete failed for {key}: property not found"),
+        Err(_) => anyhow::bail!("resetprop delete failed for {key}"),
     }
-    Ok(())
 }
 
 fn spawn_restore_watcher(
