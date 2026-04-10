@@ -22,7 +22,12 @@ export const useConfigStore = defineStore('config', () => {
   const moduleAuthor = ref('Seyud')
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const bootstrapping = ref(false)
+  const configReady = ref(false)
+  const moduleMetaReady = ref(false)
   const { t } = useI18n()
+
+  let bootstrapPromise: Promise<void> | null = null
 
   function saveConfigBackup(content: string) {
     if (typeof localStorage === 'undefined') return
@@ -129,6 +134,31 @@ export const useConfigStore = defineStore('config', () => {
     } catch {
       // 使用默认版本
     }
+  }
+
+  async function bootstrap() {
+    if (configReady.value && moduleMetaReady.value) {
+      return
+    }
+
+    if (!bootstrapPromise) {
+      bootstrapping.value = true
+      bootstrapPromise = Promise.allSettled([
+        loadConfig().finally(() => {
+          configReady.value = true
+        }),
+        loadModuleVersion().finally(() => {
+          moduleMetaReady.value = true
+        }),
+      ])
+        .then(() => undefined)
+        .finally(() => {
+          bootstrapping.value = false
+          bootstrapPromise = null
+        })
+    }
+
+    return bootstrapPromise
   }
 
   // 获取所有模板（使用 computed 缓存）
@@ -296,12 +326,16 @@ export const useConfigStore = defineStore('config', () => {
     moduleAuthor,
     loading,
     error,
+    bootstrapping,
+    configReady,
+    moduleMetaReady,
     // Computed 属性（自动缓存）
     templates,
     apps,
     deviceFakerCount,
     templateCount,
     // 函数
+    bootstrap,
     loadConfig,
     saveConfig,
     loadModuleVersion,

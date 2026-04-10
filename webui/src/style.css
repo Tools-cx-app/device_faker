@@ -68,7 +68,9 @@ body {
     sans-serif;
   background: var(--background);
   color: var(--text);
-  transition: all 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
   -webkit-tap-highlight-color: transparent;
   overflow-x: hidden;
   /* Android 平台滚动优化 - 移除overscroll-behavior以避免滑动问题 */
@@ -96,8 +98,10 @@ body {
   box-sizing: border-box;
   width: 100%;
   position: relative;
-  /* 添加过渡效果 */
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dark .glass-effect {
@@ -109,11 +113,6 @@ body {
 }
 
 /* 强制主题切换时的样式重绘 */
-.app-container.dark .glass-effect,
-.app-container:not(.dark) .glass-effect {
-  will-change: background, backdrop-filter, border-color, box-shadow;
-}
-
 /* 滚动条样式 - 优化为不影响布局 */
 /* 全局滚动条隐藏 */
 ::-webkit-scrollbar {

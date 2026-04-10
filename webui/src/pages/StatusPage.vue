@@ -10,8 +10,35 @@
           </div>
           <div class="status-info">
             <span class="status-label">{{ t('status.items.module_version') }}</span>
-            <span class="status-value">{{ moduleVersionMain }}</span>
-            <span v-if="moduleVersionBuild" class="status-build">{{ moduleVersionBuild }}</span>
+            <span class="status-transition-slot">
+              <Transition name="status-swap">
+                <span
+                  v-if="moduleMetaReady"
+                  key="module-version"
+                  class="status-value status-value--resolved"
+                >
+                  {{ moduleVersionDisplay }}
+                </span>
+                <span
+                  v-else
+                  key="module-version-skeleton"
+                  class="status-value-skeleton status-value-skeleton--wide"
+                ></span>
+              </Transition>
+            </span>
+            <span class="status-transition-slot status-transition-slot--build">
+              <Transition name="status-swap">
+                <span v-if="moduleVersionBuild" key="module-build" class="status-build">{{
+                  moduleVersionBuild
+                }}</span>
+                <span
+                  v-else-if="!moduleMetaReady"
+                  key="module-build-skeleton"
+                  class="status-build-skeleton"
+                ></span>
+                <span v-else key="module-build-empty" class="status-build-placeholder"></span>
+              </Transition>
+            </span>
           </div>
         </div>
 
@@ -21,7 +48,22 @@
           </div>
           <div class="status-info">
             <span class="status-label">{{ t('status.items.impersonated_apps_count') }}</span>
-            <span class="status-value">{{ deviceFakerCount }}</span>
+            <span class="status-transition-slot">
+              <Transition name="status-swap">
+                <span
+                  v-if="configReady"
+                  key="device-faker-count"
+                  class="status-value status-value--resolved"
+                >
+                  {{ deviceFakerCountDisplay }}
+                </span>
+                <span
+                  v-else
+                  key="device-faker-count-skeleton"
+                  class="status-value-skeleton status-value-skeleton--short"
+                ></span>
+              </Transition>
+            </span>
           </div>
         </div>
 
@@ -31,17 +73,50 @@
           </div>
           <div class="status-info">
             <span class="status-label">{{ t('status.items.templates_count') }}</span>
-            <span class="status-value">{{ templateCount }}</span>
+            <span class="status-transition-slot">
+              <Transition name="status-swap">
+                <span
+                  v-if="configReady"
+                  key="template-count"
+                  class="status-value status-value--resolved"
+                >
+                  {{ templateCountDisplay }}
+                </span>
+                <span
+                  v-else
+                  key="template-count-skeleton"
+                  class="status-value-skeleton status-value-skeleton--short"
+                ></span>
+              </Transition>
+            </span>
           </div>
         </div>
 
-        <div class="status-item clickable" @click="handleToggleWorkMode">
+        <div
+          :class="['status-item', { clickable: canToggleWorkMode, disabled: !canToggleWorkMode }]"
+          @click="handleToggleWorkMode"
+        >
           <div class="status-icon gradient-icon-4">
             <Settings :size="32" />
           </div>
           <div class="status-info">
             <span class="status-label">{{ t('status.items.work_mode') }}</span>
-            <span class="status-value">{{ workMode }}</span>
+            <span class="status-transition-slot">
+              <Transition name="status-swap">
+                <span
+                  v-if="configReady"
+                  key="work-mode"
+                  class="status-value status-value--resolved"
+                >
+                  {{ workMode }}
+                </span>
+                <span
+                  v-else
+                  key="work-mode-skeleton"
+                  class="status-value-skeleton status-value-skeleton--medium"
+                ></span>
+              </Transition>
+            </span>
           </div>
         </div>
 
@@ -260,24 +335,46 @@ function openAuthorLink(platform: string) {
 // 直接使用 store 中的 computed 属性，避免重复计算
 const moduleVersion = computed(() => configStore.moduleVersion)
 const moduleAuthor = computed(() => configStore.moduleAuthor)
+const configReady = computed(() => configStore.configReady)
+const moduleMetaReady = computed(() => configStore.moduleMetaReady)
+const canToggleWorkMode = computed(() => configReady.value)
+const moduleVersionDisplay = computed(() =>
+  moduleMetaReady.value ? moduleVersionMain.value : '--'
+)
 const moduleVersionMain = computed(() => {
   const v = moduleVersion.value
   const idx = v.indexOf('(')
   return idx > 0 ? v.substring(0, idx).trim() : v
 })
 const moduleVersionBuild = computed(() => {
+  if (!moduleMetaReady.value) {
+    return ''
+  }
+
   const v = moduleVersion.value
   const match = v.match(/\((.+)\)/)
   return match ? match[1] : ''
 })
-const deviceFakerCount = computed(() => configStore.deviceFakerCount)
-const templateCount = computed(() => configStore.templateCount)
+const deviceFakerCountDisplay = computed(() =>
+  configReady.value ? String(configStore.deviceFakerCount) : '--'
+)
+const templateCountDisplay = computed(() =>
+  configReady.value ? String(configStore.templateCount) : '--'
+)
 const workMode = computed(() => {
+  if (!configReady.value) {
+    return '--'
+  }
+
   const mode = configStore.config.default_mode || 'lite'
   return mode === 'lite' ? t('status.mode.lite') : t('status.mode.full')
 })
 
 async function handleToggleWorkMode() {
+  if (!configReady.value) {
+    return
+  }
+
   await configStore.toggleWorkMode()
 }
 
@@ -348,6 +445,10 @@ onActivated(() => {
   -webkit-user-select: none;
 }
 
+.status-item.disabled {
+  opacity: 0.65;
+}
+
 .status-item.clickable:active {
   background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
   transform: scale(0.98);
@@ -412,11 +513,93 @@ onActivated(() => {
   color: var(--text);
 }
 
+.status-value--resolved {
+  display: inline-flex;
+  align-items: center;
+}
+
 .status-build {
   font-size: 0.75rem;
   color: var(--text-secondary);
   opacity: 0.7;
   font-family: monospace;
+}
+
+.status-build-placeholder {
+  display: inline-flex;
+  height: 0.75rem;
+}
+
+.status-transition-slot {
+  display: inline-grid;
+  align-items: center;
+  justify-items: start;
+  min-height: 1.75rem;
+}
+
+.status-transition-slot > * {
+  grid-area: 1 / 1;
+}
+
+.status-transition-slot--build {
+  min-height: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.status-value-skeleton,
+.status-build-skeleton {
+  display: inline-flex;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--card-bg) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: status-skeleton-shimmer 1.3s linear infinite;
+  opacity: 0.8;
+}
+
+.status-value-skeleton {
+  height: 1.35rem;
+  margin-top: 0.15rem;
+}
+
+.status-value-skeleton--short {
+  width: 2.75rem;
+}
+
+.status-value-skeleton--medium {
+  width: 5.5rem;
+}
+
+.status-value-skeleton--wide {
+  width: 7.5rem;
+}
+
+.status-build-skeleton {
+  width: 4.25rem;
+  height: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+@keyframes status-skeleton-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.status-swap-enter-active,
+.status-swap-leave-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.status-swap-enter-from,
+.status-swap-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
 }
 
 .follow-dialog-content {

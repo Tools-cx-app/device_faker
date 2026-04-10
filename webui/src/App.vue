@@ -4,7 +4,7 @@
     <header class="app-header glass-effect">
       <h1 class="header-title">
         Device Faker
-        <span class="version">{{ version }}</span>
+        <span class="version">{{ versionDisplay }}</span>
       </h1>
     </header>
 
@@ -13,7 +13,7 @@
       <div class="page-stage">
         <Transition name="page-switch">
           <KeepAlive>
-            <component :is="currentPageComponent" :key="displayedPage" class="page-view" />
+            <component :is="currentPageComponent" :key="activePage" class="page-view" />
           </KeepAlive>
         </Transition>
       </div>
@@ -25,6 +25,7 @@
         v-for="page in pages"
         :key="page.id"
         :class="['nav-item', { active: activePage === page.id }]"
+        @pointerdown="primePage(page.id)"
         @click.stop="handlePageChange(page.id)"
       >
         <component :is="page.icon" :size="24" />
@@ -35,7 +36,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent, onMounted, onUnmounted, watchEffect } from 'vue'
+import {
+  ref,
+  computed,
+  defineAsyncComponent,
+  defineComponent,
+  h,
+  onMounted,
+  onUnmounted,
+  watch,
+} from 'vue'
 import { Home, FileText, Smartphone, Settings } from 'lucide-vue-next'
 import AppsPageSkeleton from './components/apps/AppsPageSkeleton.vue'
 import { useAppsStore } from './stores/apps'
@@ -43,21 +53,36 @@ import { useConfigStore } from './stores/config'
 import { useSettingsStore } from './stores/settings'
 import { useI18n } from './utils/i18n'
 import StatusPage from './pages/StatusPage.vue'
-import TemplatePage from './pages/TemplatePage.vue'
-import SettingsPage from './pages/SettingsPage.vue'
 
 type AppsPageComponent = (typeof import('./pages/AppsPage.vue'))['default']
+type TemplatePageComponent = (typeof import('./pages/TemplatePage.vue'))['default']
+type SettingsPageComponent = (typeof import('./pages/SettingsPage.vue'))['default']
+type PageId = 'home' | 'templates' | 'apps' | 'settings'
+
+const AsyncPagePlaceholder = defineComponent({
+  name: 'AsyncPagePlaceholder',
+  setup() {
+    return () =>
+      h('div', { class: 'page-placeholder glass-effect' }, [
+        h('div', { class: 'page-placeholder__line page-placeholder__line--title' }),
+        h('div', { class: 'page-placeholder__line' }),
+        h('div', { class: 'page-placeholder__line page-placeholder__line--short' }),
+      ])
+  },
+})
 
 let appsPageLoader: Promise<AppsPageComponent> | null = null
-let appsPageReady = false
+let templatePageLoader: Promise<TemplatePageComponent> | null = null
+let settingsPageLoader: Promise<SettingsPageComponent> | null = null
+let idleWarmupTimer: number | null = null
+let idleWarmupId: number | null = null
+let appDataWarmupTimer: number | null = null
+let appDataWarmupId: number | null = null
 
 function preloadAppsPage() {
   if (!appsPageLoader) {
     appsPageLoader = import('./pages/AppsPage.vue')
-      .then((module) => {
-        appsPageReady = true
-        return module.default
-      })
+      .then((module) => module.default)
       .catch((error) => {
         appsPageLoader = null
         throw error
@@ -67,9 +92,49 @@ function preloadAppsPage() {
   return appsPageLoader
 }
 
+function preloadTemplatePage() {
+  if (!templatePageLoader) {
+    templatePageLoader = import('./pages/TemplatePage.vue')
+      .then((module) => module.default)
+      .catch((error) => {
+        templatePageLoader = null
+        throw error
+      })
+  }
+
+  return templatePageLoader
+}
+
+function preloadSettingsPage() {
+  if (!settingsPageLoader) {
+    settingsPageLoader = import('./pages/SettingsPage.vue')
+      .then((module) => module.default)
+      .catch((error) => {
+        settingsPageLoader = null
+        throw error
+      })
+  }
+
+  return settingsPageLoader
+}
+
 const AppsPage = defineAsyncComponent({
   loader: preloadAppsPage,
   suspensible: false,
+  loadingComponent: AppsPageSkeleton,
+  delay: 0,
+})
+const TemplatePage = defineAsyncComponent<TemplatePageComponent>({
+  loader: preloadTemplatePage,
+  suspensible: false,
+  loadingComponent: AsyncPagePlaceholder,
+  delay: 0,
+})
+const SettingsPage = defineAsyncComponent<SettingsPageComponent>({
+  loader: preloadSettingsPage,
+  suspensible: false,
+  loadingComponent: AsyncPagePlaceholder,
+  delay: 0,
 })
 
 const configStore = useConfigStore()
@@ -77,16 +142,9 @@ const appsStore = useAppsStore()
 const settingsStore = useSettingsStore()
 
 const activePage = ref('home')
-const displayedPage = ref('home')
-let lastClickTime = 0
-let isChangingPage = false
-let appsBootstrapToken = 0
-let appsWarmupStarted = false
-let appsWarmupTimer: number | null = null
-let appsWarmupIdleId: number | null = null
-
-// 滚动条宽度补偿机制
-const scrollbarWidth = ref(0)
+const systemPrefersDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
+let mediaQuery: ReturnType<typeof window.matchMedia> | null = null
+let mediaQueryListener: ((event: { matches: boolean }) => void) | null = null
 
 function getMainContentElement() {
   return document.querySelector('.main-content') as HTMLElement | null
@@ -130,17 +188,40 @@ function stabilizeTemplateEntryFromHome() {
   })
 }
 
-// 处理页面切换，防止重复点击和事件冲突
-function handlePageChange(pageId: string) {
-  const now = Date.now()
-  const previousPage = activePage.value
-
-  if (isChangingPage || now - lastClickTime < 50 || previousPage === pageId) {
+function warmPage(pageId: PageId, options: { includeAppData?: boolean } = {}) {
+  if (pageId === 'apps') {
+    void preloadAppsPage().catch(() => {})
+    if (options.includeAppData) {
+      void appsStore.ensureUserAppsLoaded()
+    }
     return
   }
 
-  lastClickTime = now
-  isChangingPage = true
+  if (pageId === 'templates') {
+    void preloadTemplatePage().catch(() => {})
+    return
+  }
+
+  if (pageId === 'settings') {
+    void preloadSettingsPage().catch(() => {})
+  }
+}
+
+function primePage(pageId: string) {
+  if (pageId === 'home') {
+    return
+  }
+
+  warmPage(pageId as PageId, { includeAppData: pageId === 'apps' })
+}
+
+function handlePageChange(pageId: string) {
+  const previousPage = activePage.value
+
+  if (previousPage === pageId) {
+    return
+  }
+
   activePage.value = pageId
   const isTemplateFromHome = previousPage === 'home' && pageId === 'templates'
 
@@ -148,40 +229,17 @@ function handlePageChange(pageId: string) {
     stabilizeTemplateEntryFromHome()
   }
 
-  if (pageId === 'apps' && !appsPageReady) {
-    const token = ++appsBootstrapToken
-    displayedPage.value = 'apps-skeleton'
-    void appsStore.ensureUserAppsLoaded()
-    void preloadAppsPage()
-      .then(() => {
-        requestAnimationFrame(() => {
-          if (activePage.value !== 'apps' || token !== appsBootstrapToken) {
-            return
-          }
-          displayedPage.value = 'apps'
-        })
-      })
-      .catch(() => {
-        if (activePage.value === 'apps' && token === appsBootstrapToken) {
-          displayedPage.value = 'apps'
-        }
-      })
-  } else {
-    if (pageId === 'apps') {
-      void appsStore.ensureUserAppsLoaded()
-    }
-    displayedPage.value = pageId
-  }
-
-  window.setTimeout(() => {
-    isChangingPage = false
-  }, 220)
+  primePage(pageId)
 }
-const version = computed(() => configStore.moduleVersion)
+
+const versionDisplay = computed(() =>
+  configStore.moduleMetaReady ? configStore.moduleVersion : '--'
+)
 const isDark = computed(() => {
   if (settingsStore.theme === 'system') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
+    return systemPrefersDark.value
   }
+
   return settingsStore.theme === 'dark'
 })
 
@@ -194,166 +252,93 @@ const pages = computed(() => [
   { id: 'settings', label: t('nav.settings'), icon: Settings, component: SettingsPage },
 ])
 
-const currentPageComponent = computed(() => {
-  if (displayedPage.value === 'apps-skeleton') {
-    return AppsPageSkeleton
-  }
+const currentPageComponent = computed(
+  () => pages.value.find((page) => page.id === activePage.value)?.component || StatusPage
+)
 
-  return pages.value.find((p) => p.id === displayedPage.value)?.component || StatusPage
-})
+watch(
+  isDark,
+  (isDarkMode) => {
+    document.documentElement.classList.toggle('dark', isDarkMode)
+    document
+      .getElementById('theme-color')
+      ?.setAttribute('content', isDarkMode ? '#1a2538' : '#f2f9ff')
+  },
+  { immediate: true }
+)
 
-// 应用深色模式到 html 元素（Element Plus 需要）
-watchEffect(() => {
-  const isDarkMode = isDark.value
-
-  if (isDarkMode) {
-    document.documentElement.classList.add('dark')
-    // 深色模式：匹配深色毛玻璃效果
-    document.getElementById('theme-color')?.setAttribute('content', '#1a2538')
-  } else {
-    document.documentElement.classList.remove('dark')
-    // 浅色模式：匹配浅色毛玻璃效果
-    document.getElementById('theme-color')?.setAttribute('content', '#f2f9ff')
-  }
-
-  // 强制重新计算样式，确保毛玻璃效果正确应用
-  // 通过强制重绘来解决样式同步问题
+function scheduleConfigBootstrap() {
   requestAnimationFrame(() => {
-    // 强制触发重新渲染
-    const appContainer = document.querySelector('.app-container') as HTMLElement
-    if (appContainer) {
-      // 强制重排
-      appContainer.style.display = 'none'
-      void appContainer.offsetHeight // 触发重排
-      appContainer.style.display = ''
-    }
-
-    // 强制所有毛玻璃元素重新计算样式
-    const glassElements = document.querySelectorAll('.glass-effect')
-    glassElements.forEach((element) => {
-      const el = element as HTMLElement
-      // 移除will-change以避免触摸事件问题，Android WebView需要清晰的触摸事件流
-      el.style.backdropFilter = 'none'
-      void el.offsetWidth // 强制重排
-      // 恢复毛玻璃效果
-      el.style.backdropFilter = ''
-    })
-
-    // 触发所有样式重新计算
-    document.body.style.webkitFilter = 'hide'
-    void document.body.offsetHeight
-    document.body.style.webkitFilter = ''
+    window.setTimeout(() => {
+      void configStore.bootstrap()
+    }, 0)
   })
-})
-
-// 计算滚动条宽度
-function calculateScrollbarWidth(): number {
-  // 创建一个测试元素来计算滚动条宽度
-  const testDiv = document.createElement('div')
-  testDiv.style.cssText = `
-    position: absolute;
-    top: -9999px;
-    width: 100px;
-    height: 100px;
-    overflow: scroll;
-    visibility: hidden;
-  `
-  document.body.appendChild(testDiv)
-
-  // 计算滚动条宽度
-  const width = testDiv.offsetWidth - testDiv.clientWidth
-  document.body.removeChild(testDiv)
-  return width
 }
 
-function warmupAppsPage() {
-  if (appsWarmupStarted) return
+function schedulePageWarmup() {
+  const runWarmup = () => {
+    idleWarmupId = null
+    idleWarmupTimer = null
+    warmPage('templates')
+    warmPage('settings')
+    warmPage('apps')
+  }
 
-  appsWarmupStarted = true
-  void preloadAppsPage().catch(() => {})
-  void appsStore.ensureUserAppsLoaded()
-}
-
-function scheduleAppsPageWarmup() {
   if (typeof window.requestIdleCallback === 'function') {
-    appsWarmupIdleId = window.requestIdleCallback(() => {
-      warmupAppsPage()
-      appsWarmupIdleId = null
-    })
+    idleWarmupId = window.requestIdleCallback(runWarmup, { timeout: 1500 })
     return
   }
 
-  appsWarmupTimer = window.setTimeout(() => {
-    warmupAppsPage()
-    appsWarmupTimer = null
-  }, 300)
+  idleWarmupTimer = window.setTimeout(runWarmup, 800)
 }
 
-// 应用滚动条宽度补偿
-function applyScrollbarWidth() {
-  const width = calculateScrollbarWidth()
-  const previousWidth = scrollbarWidth.value
-  scrollbarWidth.value = width
-
-  // 为所有页面容器添加滚动条宽度补偿
-  const mainContent = document.querySelector('.main-content') as HTMLElement
-  if (mainContent) {
-    // 检查页面是否有垂直滚动条
-    const hasScrollbar = document.body.scrollHeight > window.innerHeight
-    // 始终保持至少1rem的右侧内边距，加上滚动条宽度（如果有）
-    const basePadding = 16 // 1rem = 16px
-    const newPadding = hasScrollbar ? `${basePadding + width}px` : `${basePadding}px`
-    if (mainContent.style.paddingRight !== newPadding) {
-      mainContent.style.paddingRight = newPadding
-      // 记录调试信息
-      console.warn(
-        `[DeviceFaker] 滚动条宽度补偿更新: 滚动条宽度=${width}px, hasScrollbar=${hasScrollbar}, paddingRight=${newPadding}`
-      )
-    }
+function scheduleAppDataWarmup() {
+  const runWarmup = () => {
+    appDataWarmupId = null
+    appDataWarmupTimer = null
+    void appsStore.ensureUserAppsLoaded()
   }
 
-  // 记录宽度变化
-  if (width !== previousWidth) {
-    console.warn(`[DeviceFaker] 滚动条宽度变化: 旧=${previousWidth}px, 新=${width}px`)
+  if (typeof window.requestIdleCallback === 'function') {
+    appDataWarmupId = window.requestIdleCallback(runWarmup, { timeout: 2500 })
+    return
   }
+
+  appDataWarmupTimer = window.setTimeout(runWarmup, 1800)
 }
 
-// 监听系统主题变化
 onMounted(() => {
-  configStore.loadConfig()
-  configStore.loadModuleVersion()
-  scheduleAppsPageWarmup()
+  scheduleConfigBootstrap()
+  schedulePageWarmup()
+  scheduleAppDataWarmup()
 
-  // 初始化滚动条宽度计算
-  applyScrollbarWidth()
-
-  // 监听窗口 resize 和滚动事件，动态更新滚动条宽度补偿
-  window.addEventListener('resize', applyScrollbarWidth)
-  window.addEventListener('scroll', applyScrollbarWidth)
-
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  mediaQuery.addEventListener('change', () => {
-    if (settingsStore.theme === 'system') {
-      // 触发重新计算
-      applyScrollbarWidth()
-      window.dispatchEvent(new Event('resize'))
-    }
-  })
+  mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  systemPrefersDark.value = mediaQuery.matches
+  mediaQueryListener = (event) => {
+    systemPrefersDark.value = event.matches
+  }
+  mediaQuery.addEventListener('change', mediaQueryListener)
 })
 
-// 组件卸载时清理事件监听器
 onUnmounted(() => {
-  window.removeEventListener('resize', applyScrollbarWidth)
-  window.removeEventListener('scroll', applyScrollbarWidth)
-
-  if (appsWarmupTimer !== null) {
-    window.clearTimeout(appsWarmupTimer)
-    appsWarmupTimer = null
+  if (mediaQuery && mediaQueryListener) {
+    mediaQuery.removeEventListener('change', mediaQueryListener)
   }
 
-  if (appsWarmupIdleId !== null && typeof window.cancelIdleCallback === 'function') {
-    window.cancelIdleCallback(appsWarmupIdleId)
-    appsWarmupIdleId = null
+  if (idleWarmupTimer !== null) {
+    window.clearTimeout(idleWarmupTimer)
+  }
+
+  if (idleWarmupId !== null && typeof window.cancelIdleCallback === 'function') {
+    window.cancelIdleCallback(idleWarmupId)
+  }
+
+  if (appDataWarmupTimer !== null) {
+    window.clearTimeout(appDataWarmupTimer)
+  }
+
+  if (appDataWarmupId !== null && typeof window.cancelIdleCallback === 'function') {
+    window.cancelIdleCallback(appDataWarmupId)
   }
 })
 </script>
@@ -442,6 +427,44 @@ onUnmounted(() => {
   width: 100%;
 }
 
+.page-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  min-height: 14rem;
+}
+
+.page-placeholder__line {
+  height: 0.95rem;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--card-bg) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: page-placeholder-shimmer 1.3s linear infinite;
+  opacity: 0.75;
+}
+
+.page-placeholder__line--title {
+  width: 42%;
+  height: 1.2rem;
+}
+
+.page-placeholder__line--short {
+  width: 65%;
+}
+
+@keyframes page-placeholder-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+
+  to {
+    background-position: 200% 0;
+  }
+}
+
 .page-switch-enter-active {
   position: relative;
   z-index: 2;
@@ -511,7 +534,10 @@ onUnmounted(() => {
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  transition: all 0.2s ease;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.2s ease;
   border-radius: 0.5rem;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
