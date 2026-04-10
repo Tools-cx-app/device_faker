@@ -24,7 +24,7 @@ A device model spoofing module based on Zygisk that can configure different devi
 
 ## WebUI Features 🖥️
 
-Device Faker provides a modern web management interface accessible through the WebUI-X API:
+Device Faker provides a modern web management interface.
 
 - 📊 **Status Monitoring**: View module running status in real-time
 - 📋 **Template Management**: Create, edit and delete device templates, batch apply to multiple package names
