@@ -18,7 +18,7 @@
 ### ⚡ Improvements
 - 🔗 Updated to adapt jni 0.22 API
 - ⚡ Significantly optimized WebUI page switching performance
-- ⚡ Optimized WebUI app list loading performance
+- 🏎️ Optimized WebUI app list loading performance
 - 🏗️ Refactored the entire WebUI online template library pipeline
 - 📏 Used cutting-edge Web technology pretext to optimize text height measurement in online template virtual list
 - 🚀 Optimized WebUI first screen page switch responsiveness

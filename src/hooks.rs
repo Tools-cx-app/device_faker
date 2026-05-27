@@ -194,8 +194,7 @@ pub unsafe extern "C" fn native_get_hook(
         };
 
         let fake_props = FAKE_PROPS.lock().unwrap();
-        if let Some(props) = fake_props.as_ref()
-            && let Some(fake_value) = props.get(&key_string)
+        if let Some(fake_value) = fake_props.get(&key_string)
             && let Ok(new_string) = jenv.new_string(fake_value)
         {
             return Ok(new_string.into_raw());
@@ -227,18 +226,14 @@ unsafe extern "C" fn my_system_property_get(
 
     let result = {
         let fake_props = FAKE_PROPS.lock().unwrap();
-        if let Some(props) = fake_props.as_ref() {
-            props.get(name_str).map(|fake_value| {
-                let len = std::cmp::min(fake_value.len(), 91);
-                unsafe {
-                    std::ptr::copy(fake_value.as_ptr() as *const libc::c_char, value, len);
-                    value.add(len).write(b'\0');
-                }
-                len as libc::c_int
-            })
-        } else {
-            None
-        }
+        fake_props.get(name_str).map(|fake_value| {
+            let len = std::cmp::min(fake_value.len(), 91);
+            unsafe {
+                std::ptr::copy(fake_value.as_ptr() as *const libc::c_char, value, len);
+                value.add(len).write(b'\0');
+            }
+            len as libc::c_int
+        })
     };
 
     if let Some(len) = result {

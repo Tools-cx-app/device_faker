@@ -185,7 +185,7 @@ impl MyModule {
     }
 
     fn apply_lite_mode(api: &mut ZygiskApi<V4>, debug: bool) -> anyhow::Result<()> {
-        *FAKE_PROPS.lock().unwrap() = None;
+        FAKE_PROPS.lock().unwrap().clear();
         IS_FULL_MODE.store(false, std::sync::atomic::Ordering::Relaxed);
         if debug {
             info!("Lite mode: only Build fields hooked, unloading module");
@@ -209,7 +209,7 @@ impl MyModule {
             info!("Property map created with {} entries", prop_map.len());
         }
 
-        *FAKE_PROPS.lock().unwrap() = Some(prop_map);
+        *FAKE_PROPS.lock().unwrap() = prop_map;
         IS_FULL_MODE.store(true, std::sync::atomic::Ordering::Relaxed);
         hook_system_properties(api, env)?;
         hook_native_property_get(api)?;
@@ -239,7 +239,7 @@ impl MyModule {
             info!("Resetprop spoofing completed");
         }
 
-        *FAKE_PROPS.lock().unwrap() = None;
+        FAKE_PROPS.lock().unwrap().clear();
         IS_FULL_MODE.store(false, std::sync::atomic::Ordering::Relaxed);
         api.set_option(ZygiskOption::DlCloseModuleLibrary);
         Ok(())
