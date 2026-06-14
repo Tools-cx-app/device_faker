@@ -11,6 +11,89 @@
 # - "resetprop": 使用 resetprop 工具修改属性（持续伪装）
 default_mode = "lite"
 
+# CPU 伪装预设表
+# 在模板或 [[apps]] 中使用 cpu_spoof = "预设名称" 引用
+[cpu_presets]
+kirin_9020a = """Processor       : AArch64 Processor rev 1 (aarch64)
+Features        : fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm
+CPU implementer : 0x48
+CPU architecture: 8
+CPU variant     : 0x0
+CPU part        : 0xd05
+CPU revision    : 1
+
+processor       : 0
+BogoMIPS        : 52.00
+CPU implementer : 0x48
+CPU architecture: 8
+CPU variant     : 0x0
+CPU part        : 0xd05
+CPU revision    : 1
+
+processor       : 1
+BogoMIPS        : 52.00
+CPU implementer : 0x48
+CPU architecture: 8
+CPU variant     : 0x1
+CPU part        : 0xd46
+CPU revision    : 1
+
+processor       : 2
+BogoMIPS        : 52.00
+CPU implementer : 0x48
+CPU architecture: 8
+CPU variant     : 0x1
+CPU part        : 0xd46
+CPU revision    : 1
+
+processor       : 3
+BogoMIPS        : 52.00
+CPU implementer : 0x48
+CPU architecture: 8
+CPU variant     : 0x1
+CPU part        : 0xd46
+CPU revision    : 1
+
+processor       : 4
+BogoMIPS        : 52.00
+CPU implementer : 0x48
+CPU architecture: 8
+CPU variant     : 0x2
+CPU part        : 0xd23
+CPU revision    : 1
+
+processor       : 5
+BogoMIPS        : 52.00
+CPU implementer : 0x48
+CPU architecture: 8
+CPU variant     : 0x2
+CPU part        : 0xd23
+CPU revision    : 1
+
+processor       : 6
+BogoMIPS        : 52.00
+CPU implementer : 0x48
+CPU architecture: 8
+CPU variant     : 0x2
+CPU part        : 0xd23
+CPU revision    : 1
+
+processor       : 7
+BogoMIPS        : 52.00
+CPU implementer : 0x48
+CPU architecture: 8
+CPU variant     : 0x2
+CPU part        : 0xd23
+CPU revision    : 1
+
+Hardware        : HiSilicon Kirin 9020A"""
+
+# GPU 伪装示例 preset
+# 高级用户可手动在模板/应用的 gpu_spoof 中引用，
+# 或在 custom_props 中直接使用这些属性。
+[gpu_presets]
+hisi_maleoon_920 = { "ro.gpu.vendor" = "HiSilicon", "ro.gpu.model" = "Maleoon 920", "ro.hardware.gpu" = "Maleoon 920", "ro.hisi.gpu" = "maleoon920" }
+
 # 调试模式（默认关闭以提高隐蔽性）
 # 设置为 true 可以在 logcat 中看到详细日志，方便排查问题
 # 正常使用时建议设置为 false 或删除此行
@@ -188,9 +271,9 @@ manufacturer = "vivo"
 #   ✅ 所有字段都生效
 #   ⭐ name 字段会同时伪装 ro.product.name 和 ro.product.device
 #   ⭐ characteristics 在 native 层伪装
-# 
+#
 # 【模式说明】
-# 
+#
 # ┌──────────┬────────────┬──────────────┬────────────┬──────────────┐
 # │   模式   │  Build类   │ Properties   │  可卸载    │   隐蔽性     │
 # ├──────────┼────────────┼──────────────┼────────────┼──────────────┤
@@ -198,7 +281,7 @@ manufacturer = "vivo"
 # │  full    │     ✅     │      ✅      │     ❌     │  ⭐⭐⭐⭐      │
 # │ resetprop│     ✅     │      ✅      │     ❌     │  ⭐⭐⭐        │
 # └──────────┴────────────┴──────────────┴────────────┴──────────────┘
-# 
+#
 # 【lite 模式】（默认，推荐）⭐
 # - 只修改 android.os.Build 类的静态字段
 # - 完成后立即卸载模块，模块不驻留内存
@@ -206,7 +289,7 @@ manufacturer = "vivo"
 # - ✅ 优点：对 95% 的应用来说，伪装 Build 类已经足够
 # - ⚠️ 缺点：无法伪装 SystemProperties（极少数应用会检查）
 # - 适用场景：默认选择，适合大多数应用
-# 
+#
 # 【full 模式】（按需使用）
 # - 修改 Build 类 + 伪装 SystemProperties.native_get
 # - 模块保持加载状态，驻留内存
@@ -217,7 +300,7 @@ manufacturer = "vivo"
 # 【resetprop 模式】
 # - 使用 resetprop 工具修改系统属性
 # - ✅ 优点：可以修改只读属性
-# 
+#
 # 推荐策略：
 # 1. 默认所有应用使用 lite 模式（不设置 mode 字段）
 # 2. 只有当某个应用在 lite 模式下仍能检测到真实机型时，才为其单独设置 mode = "full"

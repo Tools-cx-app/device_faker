@@ -2,6 +2,9 @@
 mod atexit;
 mod companion;
 mod config;
+mod cpu_spoof;
+#[cfg(target_os = "android")]
+mod file_logger;
 mod hooks;
 mod state;
 
@@ -13,6 +16,7 @@ use companion::{
     spoof_system_props_via_companion,
 };
 use config::{Config, MergedAppConfig};
+use cpu_spoof::apply_cpu_spoof;
 use hooks::{hook_build_fields, hook_native_property_get, hook_system_properties};
 use jni::{EnvUnowned, errors::ThrowRuntimeExAndDefault};
 use log::{LevelFilter, error, info};
@@ -32,11 +36,8 @@ impl ZygiskModule for MyModule {
     type Api = V4;
 
     fn on_load(&self, _api: ZygiskApi<V4>, _env: EnvUnowned) {
-        android_logger::init_once(
-            android_logger::Config::default()
-                .with_max_level(LevelFilter::Error)
-                .with_tag("DeviceFaker"),
-        );
+        #[cfg(target_os = "android")]
+        file_logger::init();
     }
 
     fn pre_app_specialize(
@@ -73,6 +74,25 @@ impl ZygiskModule for MyModule {
 
 impl MyModule {
     fn handle_app_specialize(
+        &self,
+        api: &mut ZygiskApi<V4>,
+        env: &mut EnvUnowned,
+        args: &mut <V4 as ZygiskRaw>::AppSpecializeArgs,
+    ) -> anyhow::Result<()> {
+        let result = self.do_handle_app_specialize(api, env, args);
+
+        // 在 pre_app_specialize 退出前统一 flush，确保 on_load + specialize 期间
+        // 产生的所有日志都能发给 companion 落盘。
+        if let Err(e) = flush_log_buffer_to_companion(api) {
+            // 这里不能用 error!，否则会产生新的日志又无法 flush。
+            // 静默失败，依赖 /data/local/tmp/ fallback（如果可用）。
+            let _ = e;
+        }
+
+        result
+    }
+
+    fn do_handle_app_specialize(
         &self,
         api: &mut ZygiskApi<V4>,
         env: &mut EnvUnowned,
@@ -139,6 +159,9 @@ impl MyModule {
 
         match SpoofMode::from_mode_str(&merged.mode) {
             SpoofMode::Lite => Self::apply_lite_mode(api, config.debug),
+            SpoofMode::Cpu => {
+                Self::apply_cpu_mode(api, env, &merged, &package_with_user, config.debug)
+            }
             SpoofMode::Full => Self::apply_full_mode(api, env, &merged, config.debug),
             SpoofMode::Resetprop => {
                 Self::apply_resetprop_mode(api, &package_with_user, &merged, config.debug)
@@ -159,7 +182,7 @@ impl MyModule {
 
     fn extract_package_name(
         env: &mut EnvUnowned,
-        args: &mut <V4 as ZygiskRaw>::AppSpecializeArgs,
+        args: &<V4 as ZygiskRaw>::AppSpecializeArgs,
     ) -> anyhow::Result<String> {
         let result: String = env
             .with_env(|_jenv| -> Result<String, jni::errors::Error> {
@@ -190,6 +213,31 @@ impl MyModule {
         if debug {
             info!("Lite mode: only Build fields hooked, unloading module");
         }
+        api.set_option(ZygiskOption::DlCloseModuleLibrary);
+        Ok(())
+    }
+
+    fn apply_cpu_mode(
+        api: &mut ZygiskApi<V4>,
+        env: &mut EnvUnowned,
+        merged: &MergedAppConfig,
+        package_with_user: &str,
+        debug: bool,
+    ) -> anyhow::Result<()> {
+        FAKE_PROPS.lock().unwrap().clear();
+        IS_FULL_MODE.store(false, std::sync::atomic::Ordering::Relaxed);
+
+        hook_build_fields(env, merged)?;
+        if debug {
+            info!("CPU mode: Build fields hooked");
+        }
+
+        if let Err(err) = apply_cpu_spoof(api, merged, package_with_user, debug) {
+            error!("Failed to apply CPU spoof: {err:?}");
+        } else if debug && merged.cpuinfo_content.is_some() {
+            info!("CPU spoof applied for {package_with_user}");
+        }
+
         api.set_option(ZygiskOption::DlCloseModuleLibrary);
         Ok(())
     }
@@ -249,6 +297,7 @@ impl MyModule {
 #[derive(Clone, Copy)]
 enum SpoofMode {
     Lite,
+    Cpu,
     Full,
     Resetprop,
 }
@@ -257,6 +306,7 @@ impl SpoofMode {
     fn from_mode_str(value: &str) -> Self {
         match value {
             "lite" => Self::Lite,
+            "cpu" => Self::Cpu,
             "full" => Self::Full,
             "resetprop" => Self::Resetprop,
             other => {
@@ -285,6 +335,24 @@ fn configure_log_level(debug_enabled: bool) {
         LevelFilter::Error
     };
     log::set_max_level(level);
+}
+
+fn flush_log_buffer_to_companion(api: &mut ZygiskApi<V4>) -> anyhow::Result<()> {
+    let lines = file_logger::drain_lines();
+    if lines.is_empty() {
+        return Ok(());
+    }
+
+    let request = companion::CompanionRequest::WriteLog(companion::WriteLogRequest { lines });
+    let response = companion::send_companion_command(api, &request)?;
+    if response.status != 0 {
+        anyhow::bail!(
+            response
+                .message
+                .unwrap_or_else(|| "companion write log failed".to_string())
+        );
+    }
+    Ok(())
 }
 
 // Note: The register_module macro should handle the EnvUnowned properly

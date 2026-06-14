@@ -18,8 +18,10 @@ export interface DeviceFakerFormData {
   sdk_int: string
   characteristics: string
   force_denylist_unmount: boolean | undefined
-  mode: 'lite' | 'full' | 'resetprop' | ''
+  mode: 'lite' | 'cpu' | 'full' | 'resetprop' | ''
   packages: string[]
+  cpu_spoof: string
+  cpu_spoof_custom: string
 }
 
 function createEmptyFormData(): DeviceFakerFormData {
@@ -39,6 +41,8 @@ function createEmptyFormData(): DeviceFakerFormData {
     force_denylist_unmount: undefined,
     mode: '',
     packages: [],
+    cpu_spoof: '',
+    cpu_spoof_custom: '',
   }
 }
 
@@ -110,6 +114,18 @@ export function formDataToTemplate(formData: DeviceFakerFormData, base?: Templat
     delete template.packages
   }
 
+  if (formData.cpu_spoof) {
+    template.cpu_spoof = formData.cpu_spoof
+  } else {
+    delete template.cpu_spoof
+  }
+
+  if (formData.cpu_spoof_custom) {
+    template.cpu_spoof_custom = formData.cpu_spoof_custom
+  } else {
+    delete template.cpu_spoof_custom
+  }
+
   return template
 }
 
@@ -130,6 +146,8 @@ export function templateToFormData(template: Template): DeviceFakerFormData {
     force_denylist_unmount: template.force_denylist_unmount,
     mode: template.mode || '',
     packages: template.packages || [],
+    cpu_spoof: template.cpu_spoof || '',
+    cpu_spoof_custom: template.cpu_spoof_custom || '',
   }
 }
 
@@ -150,6 +168,8 @@ export function appConfigToFormData(appConfig: AppConfig): DeviceFakerFormData {
     force_denylist_unmount: appConfig.force_denylist_unmount,
     mode: appConfig.mode || '',
     packages: [],
+    cpu_spoof: appConfig.cpu_spoof || '',
+    cpu_spoof_custom: appConfig.cpu_spoof_custom || '',
   }
 }
 
@@ -170,6 +190,8 @@ export function formDataToAppConfig(formData: DeviceFakerFormData, packageName: 
     characteristics: formData.characteristics,
     force_denylist_unmount: formData.force_denylist_unmount,
     mode: formData.mode || undefined,
+    cpu_spoof: formData.cpu_spoof || undefined,
+    cpu_spoof_custom: formData.cpu_spoof_custom || undefined,
   }
 }
 

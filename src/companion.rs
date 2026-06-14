@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    fs,
+    fs::{self, OpenOptions},
     io::{Read, Write},
     os::unix::net::UnixStream,
     thread,
@@ -13,6 +13,17 @@ use serde::{Deserialize, Serialize};
 use zygisk_api::api::{V4, ZygiskApi};
 
 use crate::state::{ACTIVE_RESET_SESSION, ActiveResetSession};
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CpuSpoofRequest {
+    pub pid: u32,
+    pub content: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct WriteLogRequest {
+    pub lines: Vec<String>,
+}
 
 pub fn spoof_system_props_via_companion(
     api: &mut ZygiskApi<V4>,
@@ -96,7 +107,7 @@ fn restore_props_via_companion(
     Ok(())
 }
 
-fn send_companion_command(
+pub fn send_companion_command(
     api: &mut ZygiskApi<V4>,
     request: &CompanionRequest,
 ) -> anyhow::Result<CompanionResponse> {
@@ -122,29 +133,62 @@ fn send_companion_command(
 }
 
 pub fn handle_companion_request(stream: &mut UnixStream) {
-    let response = match read_companion_request(stream) {
-        Ok(CompanionRequest::Apply(request)) => match apply_resetprop_session(request) {
-            Ok(backups) => CompanionResponse::ok_with_backups(backups),
-            Err(err) => {
-                error!("Companion failed to apply resetprop session: {err}");
-                CompanionResponse::err(err.to_string())
-            }
-        },
-        Ok(CompanionRequest::Restore(request)) => match restore_properties(request) {
-            Ok(_) => CompanionResponse::ok(),
-            Err(err) => {
-                error!("Companion failed to restore properties: {err}");
-                CompanionResponse::err(err.to_string())
-            }
-        },
+    // companion 进程不会调用 ZygiskModule::on_load，因此需要自行初始化日志。
+    #[cfg(target_os = "android")]
+    crate::file_logger::init();
+
+    let request = match read_companion_request(stream) {
+        Ok(request) => request,
         Err(err) => {
             error!("Companion failed to parse request: {err}");
-            CompanionResponse::err("invalid request")
+            let response = CompanionResponse::err("invalid request");
+            if let Err(e) = write_companion_response(stream, &response) {
+                warn!("Failed to write companion response: {e}");
+            }
+            return;
         }
     };
 
-    if let Err(e) = write_companion_response(stream, &response) {
-        warn!("Failed to write companion response: {e}");
+    match request {
+        CompanionRequest::Apply(request) => {
+            let response = match apply_resetprop_session(request) {
+                Ok(backups) => CompanionResponse::ok_with_backups(backups),
+                Err(err) => {
+                    error!("Companion failed to apply resetprop session: {err}");
+                    CompanionResponse::err(err.to_string())
+                }
+            };
+            if let Err(e) = write_companion_response(stream, &response) {
+                warn!("Failed to write companion response: {e}");
+            }
+        }
+        CompanionRequest::Restore(request) => {
+            let response = match restore_properties(request) {
+                Ok(_) => CompanionResponse::ok(),
+                Err(err) => {
+                    error!("Companion failed to restore properties: {err}");
+                    CompanionResponse::err(err.to_string())
+                }
+            };
+            if let Err(e) = write_companion_response(stream, &response) {
+                warn!("Failed to write companion response: {e}");
+            }
+        }
+        CompanionRequest::CpuSpoof(request) => {
+            crate::cpu_spoof::handle_companion_cpu_spoof(stream, request);
+        }
+        CompanionRequest::WriteLog(request) => {
+            let response = match write_log_lines(request) {
+                Ok(_) => CompanionResponse::ok(),
+                Err(err) => {
+                    error!("Companion failed to write log: {err}");
+                    CompanionResponse::err(err.to_string())
+                }
+            };
+            if let Err(e) = write_companion_response(stream, &response) {
+                warn!("Failed to write companion response: {e}");
+            }
+        }
     }
 }
 
@@ -162,7 +206,7 @@ fn read_companion_request(stream: &mut UnixStream) -> anyhow::Result<CompanionRe
     Ok(request)
 }
 
-fn write_companion_response(
+pub(crate) fn write_companion_response(
     stream: &mut UnixStream,
     response: &CompanionResponse,
 ) -> anyhow::Result<()> {
@@ -364,6 +408,38 @@ fn restore_props_batch(backups: &[PropBackup]) -> anyhow::Result<()> {
     Ok(())
 }
 
+const LOG_PATH: &str = "/data/adb/device_faker/logs/device_faker.log";
+const FALLBACK_LOG_PATH: &str = "/data/local/tmp/device_faker_companion.log";
+
+fn write_log_lines(request: WriteLogRequest) -> anyhow::Result<()> {
+    if request.lines.is_empty() {
+        return Ok(());
+    }
+
+    let result = write_log_lines_to_path(LOG_PATH, &request.lines);
+    if result.is_err() {
+        // 主日志目录写失败时，fallback 到 /data/local/tmp/
+        let _ = write_log_lines_to_path(FALLBACK_LOG_PATH, &request.lines);
+    }
+
+    result
+}
+
+fn write_log_lines_to_path(path: &str, lines: &[String]) -> anyhow::Result<()> {
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+
+    for line in lines {
+        writeln!(file, "{line}")?;
+    }
+
+    file.flush()?;
+    Ok(())
+}
+
 fn is_process_in_top_app(pid: u32) -> bool {
     let cgroup_path = format!("/proc/{pid}/cgroup");
     match fs::read_to_string(&cgroup_path) {
@@ -373,33 +449,35 @@ fn is_process_in_top_app(pid: u32) -> bool {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct ResetpropSessionRequest {
+pub(crate) struct ResetpropSessionRequest {
     pid: u32,
     props: HashMap<String, String>,
     delete_props: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct RestoreRequest {
+pub(crate) struct RestoreRequest {
     props: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", content = "payload")]
-enum CompanionRequest {
+pub enum CompanionRequest {
     Apply(ResetpropSessionRequest),
     Restore(RestoreRequest),
+    CpuSpoof(CpuSpoofRequest),
+    WriteLog(WriteLogRequest),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct CompanionResponse {
-    status: i32,
-    message: Option<String>,
-    backups: Option<HashMap<String, String>>,
+pub struct CompanionResponse {
+    pub status: i32,
+    pub message: Option<String>,
+    pub backups: Option<HashMap<String, String>>,
 }
 
 impl CompanionResponse {
-    fn ok() -> Self {
+    pub fn ok() -> Self {
         Self {
             status: 0,
             message: None,
@@ -407,7 +485,7 @@ impl CompanionResponse {
         }
     }
 
-    fn err(msg: impl Into<String>) -> Self {
+    pub fn err(msg: impl Into<String>) -> Self {
         Self {
             status: -1,
             message: Some(msg.into()),
@@ -415,7 +493,7 @@ impl CompanionResponse {
         }
     }
 
-    fn ok_with_backups(backups: HashMap<String, String>) -> Self {
+    pub fn ok_with_backups(backups: HashMap<String, String>) -> Self {
         Self {
             status: 0,
             message: None,

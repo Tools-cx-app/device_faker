@@ -10,7 +10,7 @@ import type {
 
 type UnknownRecord = Record<string, unknown>
 
-const VALID_MODES: SpoofMode[] = ['lite', 'full', 'resetprop']
+const VALID_MODES: SpoofMode[] = ['lite', 'cpu', 'full', 'resetprop']
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -118,6 +118,18 @@ function normalizeDeviceInfoFields(source: UnknownRecord): Partial<DeviceInfo> {
     normalized.force_denylist_unmount = forceDenylistUnmount
   }
 
+  const cpuSpoof = asOptionalString(source.cpu_spoof)
+  if (cpuSpoof !== undefined) normalized.cpu_spoof = cpuSpoof
+
+  const cpuSpoofCustom = asOptionalString(source.cpu_spoof_custom)
+  if (cpuSpoofCustom !== undefined) normalized.cpu_spoof_custom = cpuSpoofCustom
+
+  const gpuSpoof = asOptionalString(source.gpu_spoof)
+  if (gpuSpoof !== undefined) normalized.gpu_spoof = gpuSpoof
+
+  const gpuSpoofCustom = normalizeCustomProps(source.gpu_spoof_custom)
+  if (gpuSpoofCustom !== undefined) normalized.gpu_spoof_custom = gpuSpoofCustom
+
   return normalized
 }
 
@@ -179,6 +191,18 @@ export function sanitizeConfigForSave(input: Config): Config {
 
   if (input.debug === true) {
     normalized.debug = true
+  }
+
+  if (input.default_cpu_spoof) {
+    normalized.default_cpu_spoof = input.default_cpu_spoof
+  }
+
+  if (input.cpu_presets && Object.keys(input.cpu_presets).length > 0) {
+    normalized.cpu_presets = input.cpu_presets
+  }
+
+  if (input.gpu_presets && Object.keys(input.gpu_presets).length > 0) {
+    normalized.gpu_presets = input.gpu_presets
   }
 
   if (input.templates) {

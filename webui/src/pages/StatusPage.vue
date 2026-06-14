@@ -458,7 +458,10 @@ const workMode = computed(() => {
   }
 
   const mode = configStore.config.default_mode || 'lite'
-  return mode === 'lite' ? t('status.mode.lite') : t('status.mode.full')
+  if (mode === 'lite') return t('status.mode.lite')
+  if (mode === 'cpu') return t('status.mode.cpu')
+  if (mode === 'full') return t('status.mode.full')
+  return t('status.mode.resetprop')
 })
 
 async function handleToggleWorkMode() {

@@ -74,6 +74,7 @@
       style="width: 100%"
     >
       <el-option :label="t('templates.options.mode_lite')" value="lite" />
+      <el-option :label="t('templates.options.mode_cpu')" value="cpu" />
       <el-option :label="t('templates.options.mode_full')" value="full" />
       <el-option :label="t('templates.options.mode_resetprop')" value="resetprop" />
     </el-select>
@@ -103,10 +104,31 @@
     </el-select>
   </el-form-item>
 
+  <el-form-item :label="t('templates.fields.cpu_spoof')">
+    <el-select
+      v-model="formData.cpu_spoof"
+      :placeholder="t('templates.placeholders.cpu_spoof')"
+      clearable
+      style="width: 100%"
+    >
+      <el-option v-for="name in availableCpuPresets" :key="name" :label="name" :value="name" />
+    </el-select>
+  </el-form-item>
+
+  <el-form-item :label="t('templates.fields.cpu_spoof_custom')">
+    <el-input
+      v-model="formData.cpu_spoof_custom"
+      type="textarea"
+      :rows="8"
+      :placeholder="t('templates.placeholders.cpu_spoof_custom')"
+    />
+  </el-form-item>
+
   <slot name="packages" />
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from '../../utils/i18n'
 import { useConfigStore } from '../../stores/config'
 import { useDeviceFakerFormField } from '../../composables/useDeviceFakerForm'
@@ -115,6 +137,12 @@ const formData = useDeviceFakerFormField()
 
 const { t } = useI18n()
 const configStore = useConfigStore()
+
+const availableCpuPresets = computed(() => {
+  const presets = configStore.config.cpu_presets
+  if (!presets) return []
+  return Object.keys(presets)
+})
 </script>
 
 <style>

@@ -63,7 +63,9 @@ export const messages = {
       },
       mode: {
         lite: '轻量模式',
+        cpu: 'CPU 伪装模式',
         full: '完整模式',
+        resetprop: 'Resetprop 模式',
       },
     },
     templates: {
@@ -93,6 +95,8 @@ export const messages = {
         mode: '工作模式 (可选)',
         packages: '应用包名列表 (可选)',
         system: '系统',
+        cpu_spoof: 'CPU 伪装预设',
+        cpu_spoof_custom: '自定义 CPU 信息',
       },
       placeholders: {
         name: '例如：redmagic_9_pro',
@@ -111,9 +115,12 @@ export const messages = {
         characteristics: '例如：tablet (仅 full 模式)',
         mode: '留空使用全局默认模式',
         packages: '输入或搜索应用包名',
+        cpu_spoof: '选择 config.toml 中的 CPU 预设',
+        cpu_spoof_custom: '留空则使用上方预设；填写后将完全自定义 /proc/cpuinfo 内容',
       },
       options: {
         mode_lite: 'lite - 轻量模式（推荐，隐蔽性好）',
+        mode_cpu: 'cpu - CPU 伪装模式（/proc/cpuinfo）',
         mode_full: 'full - 完整模式（全面伪装，可能被检测）',
         mode_resetprop: 'resetprop - Resetprop 模式 (支持只读属性)',
       },
@@ -150,6 +157,7 @@ export const messages = {
       },
       values: {
         lite: 'lite (轻量)',
+        cpu: 'cpu (CPU 伪装)',
         full: 'full (完整)',
         resetprop: 'resetprop (Resetprop)',
       },
@@ -351,6 +359,7 @@ export const messages = {
           label: '默认工作模式',
           desc: '选择模块的默认工作模式',
           lite: '轻量模式 (推荐)',
+          cpu: 'CPU 伪装模式',
           full: '完整模式',
           resetprop: 'Resetprop 模式',
         },
@@ -452,7 +461,9 @@ export const messages = {
       },
       mode: {
         lite: 'Lite Mode',
+        cpu: 'CPU Spoof Mode',
         full: 'Full Mode',
+        resetprop: 'Resetprop Mode',
       },
     },
     templates: {
@@ -482,6 +493,8 @@ export const messages = {
         mode: 'Work Mode (Optional)',
         packages: 'Packages (Optional)',
         system: 'System',
+        cpu_spoof: 'CPU Spoof Preset',
+        cpu_spoof_custom: 'Custom CPU Info',
       },
       placeholders: {
         name: 'e.g. redmagic_9_pro',
@@ -500,9 +513,13 @@ export const messages = {
         characteristics: 'e.g. tablet (full mode only)',
         mode: 'Leave empty to use global default',
         packages: 'Enter or search package name',
+        cpu_spoof: 'Select a CPU preset from config.toml',
+        cpu_spoof_custom:
+          'Leave empty to use the preset above; fill in to fully customize /proc/cpuinfo',
       },
       options: {
         mode_lite: 'lite - Lite Mode\n(Recommended, Stealthy)',
+        mode_cpu: 'cpu - CPU Spoof Mode\n(/proc/cpuinfo)',
         mode_full: 'full - Full Mode\n(Complete Spoofing, Detectable)',
         mode_resetprop: 'resetprop - Resetprop Mode (Supports read-only props)',
       },
@@ -539,6 +556,7 @@ export const messages = {
       },
       values: {
         lite: 'lite (Lite)',
+        cpu: 'cpu (CPU Spoof)',
         full: 'full (Full)',
         resetprop: 'resetprop (Resetprop)',
       },
@@ -742,6 +760,7 @@ export const messages = {
           label: 'Default Work Mode',
           desc: 'Choose default work mode for module',
           lite: 'Lite Mode (Recommended)',
+          cpu: 'CPU Spoof Mode',
           full: 'Full Mode',
           resetprop: 'Resetprop Mode',
         },
@@ -813,7 +832,7 @@ export const messages = {
       settings: 'Ayarlar',
     },
     status: {
-      title: 'Ev',
+      title: 'Ana Sayfa',
       items: {
         module_status: 'Modül Bilgisi',
         module_version: 'Modül Sürümü',
@@ -843,7 +862,9 @@ export const messages = {
       },
       mode: {
         lite: 'Basit Mod',
+        cpu: 'CPU Taklit Modu',
         full: 'Tam Mod',
+        resetprop: 'Resetprop Modu',
       },
     },
     templates: {
@@ -873,6 +894,8 @@ export const messages = {
         mode: 'Çalışma Modu (Opsiyonel)',
         packages: 'Paketler (Opsiyonel)',
         system: 'Sistem',
+        cpu_spoof: 'CPU Sahtekarlık Preseti',
+        cpu_spoof_custom: 'Özel CPU Bilgisi',
       },
       placeholders: {
         name: 'redmagic_9_pro vs.',
@@ -890,6 +913,9 @@ export const messages = {
         characteristics: 'tablet vs. (sadece tam mod)',
         mode: 'Küresel varsayılanı kullanmak için boş bırakın',
         packages: 'Paket adını girin veya arayın',
+        cpu_spoof: 'config.toml dosyasından bir CPU preset seçin',
+        cpu_spoof_custom:
+          'Yukarıdaki preset kullanmak için boş bırakın; /proc/cpuinfo içeriğini tamamen özelleştirmek için doldurun',
       },
       options: {
         mode_lite: 'lite - Basit Mod\n(Önerilen, Sağlıklı)',

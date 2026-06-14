@@ -1,4 +1,4 @@
-export type SpoofMode = 'lite' | 'full' | 'resetprop'
+export type SpoofMode = 'lite' | 'cpu' | 'full' | 'resetprop'
 export type OnlineTemplateSource = 'gitee' | 'github'
 export type OnlineTemplateLoadState = 'idle' | 'loading' | 'ready' | 'error'
 export type OnlineTemplateDetailsState = 'idle' | 'loading' | 'partial' | 'complete' | 'error'
@@ -25,6 +25,10 @@ export interface DeviceInfo {
   sdk_int?: number
   custom_props?: CustomProps
   force_denylist_unmount?: boolean
+  cpu_spoof?: string
+  cpu_spoof_custom?: string
+  gpu_spoof?: string
+  gpu_spoof_custom?: CustomProps
 }
 
 // 机型模板接口
@@ -108,6 +112,9 @@ export interface Config {
   default_mode?: SpoofMode
   default_force_denylist_unmount?: boolean
   debug?: boolean
+  default_cpu_spoof?: string
+  cpu_presets?: Record<string, string>
+  gpu_presets?: Record<string, CustomProps>
   templates?: Record<string, Template>
   apps?: AppConfig[]
 }

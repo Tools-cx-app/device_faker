@@ -73,6 +73,7 @@
         </div>
         <el-select v-model="defaultMode" class="setting-control" @change="onModeChange">
           <el-option :label="t('settings.module.default_mode.lite')" value="lite" />
+          <el-option :label="t('settings.module.default_mode.cpu')" value="cpu" />
           <el-option :label="t('settings.module.default_mode.full')" value="full" />
           <el-option :label="t('settings.module.default_mode.resetprop')" value="resetprop" />
         </el-select>
@@ -199,7 +200,7 @@ function onLanguageChange(value: string) {
 }
 
 async function onModeChange(value: string) {
-  configStore.config.default_mode = value as 'lite' | 'full' | 'resetprop'
+  configStore.config.default_mode = value as 'lite' | 'cpu' | 'full' | 'resetprop'
   try {
     await configStore.saveConfig()
     toast(t('settings.messages.default_mode_updated'))
@@ -314,7 +315,7 @@ async function saveConvertedTemplate() {
 // 监听配置变化（只创建一次监听器）
 watch(
   () => configStore.config.default_mode,
-  (newMode: 'lite' | 'full' | 'resetprop' | undefined) => {
+  (newMode: 'lite' | 'cpu' | 'full' | 'resetprop' | undefined) => {
     if (newMode && defaultMode.value !== newMode) {
       defaultMode.value = newMode
     }
