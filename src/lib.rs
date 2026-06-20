@@ -16,7 +16,7 @@ use companion::{
     spoof_system_props_via_companion,
 };
 use config::{Config, MergedAppConfig};
-use cpu_spoof::apply_cpu_spoof;
+use cpu_spoof::{apply_cpu_spoof, cleanup_cpu_spoof_hook};
 use hooks::{hook_build_fields, hook_native_property_get, hook_system_properties};
 use jni::{EnvUnowned, errors::ThrowRuntimeExAndDefault};
 use log::{LevelFilter, error, info};
@@ -57,6 +57,9 @@ impl ZygiskModule for MyModule {
         _env: EnvUnowned,
         _args: &<V4 as ZygiskRaw>::AppSpecializeArgs,
     ) {
+        // 恢复 unshare 的 GOT entry 到 libc 原始地址，防止 DlClose 后悬空指针。
+        cleanup_cpu_spoof_hook();
+
         if !IS_FULL_MODE.load(std::sync::atomic::Ordering::Relaxed) {
             api.set_option(ZygiskOption::DlCloseModuleLibrary);
         }
@@ -261,7 +264,12 @@ impl MyModule {
 
         if let Err(err) = apply_cpu_spoof(api, merged, package_name, debug) {
             error!("Failed to apply CPU spoof: {err:?}");
-        } else if debug && merged.cpuinfo_content.is_some() {
+        } else if debug
+            && merged
+                .cpuinfo_content
+                .as_ref()
+                .is_some_and(|c| !c.is_empty())
+        {
             info!("CPU spoof applied for {package_name}");
         }
 

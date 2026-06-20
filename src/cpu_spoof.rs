@@ -4,7 +4,7 @@ use std::{
     io::{Read, Write},
     os::unix::io::AsRawFd,
     os::unix::net::UnixStream,
-    sync::atomic::{AtomicI32, Ordering},
+    sync::atomic::{AtomicBool, AtomicI32, Ordering},
 };
 
 use anyhow::{Context, Result};
@@ -50,6 +50,36 @@ const SELINUX_CONTEXT: &str = "u:object_r:system_file:s0";
 /// 与 socket fd 完全独立，无 fd 继承问题。
 static LEAKED_FD: AtomicI32 = AtomicI32::new(-1);
 
+// ---------------------------------------------------------------------------
+// unshare PLT hook：检测 NeoZygisk 的 namespace 切换并即时 remount
+// ---------------------------------------------------------------------------
+//
+// NeoZygisk 在 app specialize 时会 hook `unshare(CLONE_NEWNS)`，在真正的
+// unshare 系统调用前执行 setns 切换到缓存 namespace，然后 old_unshare 创建新 namespace。
+// 我们通过 Zygisk V4 的 plt_hook_register hook `unshare`，在 old_unshare 返回后
+// （此时 app 已在新 namespace 中）直接执行 umount + bind mount，无需轮询。
+//
+// 对于不调用 unshare(CLONE_NEWNS) 的标准 Zygisk 实现，mount 子进程的
+// monitor_and_remount 轮询作为 fallback 继续工作。
+// ---------------------------------------------------------------------------
+
+/// unshare hook 是否已初始化（源文件路径已设置）。
+static UNSHARE_HOOK_INITIALIZED: AtomicBool = AtomicBool::new(false);
+
+/// unshare PLT hook 是否已注册（GOT entry 需要在 DlClose 前恢复）。
+static HOOK_REGISTERED: AtomicBool = AtomicBool::new(false);
+
+/// 原始 unshare 函数指针（通过 PLT hook 保存，用于恢复 GOT entry）。
+static mut ORIGINAL_UNSHARE: Option<unsafe extern "C" fn(libc::c_int) -> libc::c_int> = None;
+
+/// 泄漏的 CString，持有 fake cpuinfo 源文件路径。
+/// 在 init_unshare_hook_state 中设置，永不 drop（hook 需要 'static 生命周期）。
+static mut UNSHARE_SOURCE_CSTRING: Option<CString> = None;
+
+/// fake cpuinfo 源文件的 C 字符串指针，由 UNSHARE_SOURCE_CSTRING 持有。
+/// 仅在 UNSHARE_HOOK_INITIALIZED 为 true 后访问。
+static mut UNSHARE_SOURCE_PTR: *const libc::c_char = std::ptr::null();
+
 /// **Socket 生命周期**：`with_companion` 内部的 `companion_sock` 是局部变量，
 /// 闭包返回后自动 drop 关闭 fd。因此我们在闭包内调用 `libc::dup()` 复制 fd，
 /// 将副本存入 `LEAKED_FD`。原始 fd 随闭包结束关闭，副本保持打开。
@@ -72,6 +102,9 @@ pub fn apply_cpu_spoof(
     if debug {
         info!("Applying CPU spoof for {package_name}");
     }
+
+    // 初始化 unshare hook 状态（源文件路径），供 hook 函数使用。
+    init_unshare_hook_state(content);
 
     let request = CompanionRequest::CpuSpoof(crate::companion::CpuSpoofRequest {
         pid: std::process::id(),
@@ -98,6 +131,9 @@ pub fn apply_cpu_spoof(
                 .unwrap_or_else(|| "companion cpu spoof failed".to_string())
         );
     }
+
+    // 注册 unshare PLT hook，在 specialize 期间检测 namespace 切换并即时 remount。
+    register_unshare_hook(api)?;
 
     if debug {
         info!("CPU spoof applied successfully for {package_name}");
@@ -145,6 +181,359 @@ fn send_companion_command_leak_fd(
         .map_err(|e| anyhow::anyhow!("Failed to talk to companion: {e}"))??;
 
     Ok(response)
+}
+
+// ---------------------------------------------------------------------------
+// unshare PLT hook 实现
+// ---------------------------------------------------------------------------
+
+/// 初始化 unshare hook 的全局状态（源文件路径）。
+/// 必须在 `register_unshare_hook` 之前调用，且在 app 进程中（非 companion）。
+fn init_unshare_hook_state(source_path: &str) {
+    // 安全：单线程环境（pre_app_specialize），写入后不再修改。
+    unsafe {
+        let cs = CString::new(source_path).expect("source_path contained NUL");
+        UNSHARE_SOURCE_PTR = cs.as_ptr();
+        UNSHARE_SOURCE_CSTRING = Some(cs);
+        UNSHARE_HOOK_INITIALIZED.store(true, Ordering::Release);
+    }
+    info!("unshare hook state initialized: {source_path}");
+}
+
+/// 通过 Zygisk V4 PLT hook 注册 unshare 替身。
+/// hook 在 `unshare(CLONE_NEWNS)` 返回后触发，在新 namespace 中执行 remount。
+fn register_unshare_hook(api: &mut ZygiskApi<V4>) -> anyhow::Result<()> {
+    let symbol = c"unshare";
+
+    // NeoZygisk v4 API 拒绝 dev=0, inode=0（静默返回，不注册 hook）。
+    // 必须找到调用 unshare 的库（libandroid_runtime.so）的真实 device 和 inode。
+    // 注意：不能 hook libc.so（unshare 的定义者），因为 libc 的 PLT 没有 unshare 的
+    // GOT entry。NeoZygisk 自己也是 hook libandroid_runtime.so 中的 unshare PLT entry。
+    let (dev, ino) = find_lib_dev_ino("libandroid_runtime.so")
+        .or_else(|| find_lib_dev_ino("libc.so"))
+        .ok_or_else(|| anyhow::anyhow!("libandroid_runtime.so/libc.so not found in maps"))?;
+
+    // 安全：plt_hook_register 要求 &mut *const () 作为 original 输出。
+    // register 完成后 ORIGINAL_UNSHARE 被设置，之后仅在单线程 hook 中读取。
+    unsafe {
+        let mut original: *const () = std::ptr::null();
+        api.plt_hook_register(dev, ino, symbol, unshare_hook as *const (), &mut original);
+        api.plt_hook_commit()
+            .map_err(|_| anyhow::anyhow!("plt_hook_commit failed for unshare"))?;
+
+        ORIGINAL_UNSHARE = Some(std::mem::transmute::<
+            *const (),
+            unsafe extern "C" fn(libc::c_int) -> libc::c_int,
+        >(original));
+    }
+
+    HOOK_REGISTERED.store(true, Ordering::Release);
+    info!("unshare PLT hook registered (dev={dev:#x}, ino={ino})");
+    Ok(())
+}
+
+/// 从 /proc/self/maps 解析指定库的 device 和 inode。
+/// NeoZygisk v4 plt_hook_register 需要真实的 dev/ino，(0, 0) 会被静默拒绝。
+fn find_lib_dev_ino(lib_name: &str) -> Option<(libc::dev_t, libc::ino_t)> {
+    let maps = fs::read_to_string("/proc/self/maps").ok()?;
+    for line in maps.lines() {
+        if !line.contains(lib_name) {
+            continue;
+        }
+        // 格式: "addr-addr perms offset dev inode path"
+        // dev 是 "XX:XX" 格式的十六进制
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 6 {
+            continue;
+        }
+        let dev_str = parts[3];
+        let ino_str = parts[4];
+        let mut dev_parts = dev_str.split(':');
+        let major = u64::from_str_radix(dev_parts.next()?, 16).ok()?;
+        let minor = u64::from_str_radix(dev_parts.next()?, 16).ok()?;
+        let ino: u64 = ino_str.parse().ok()?;
+        return Some(((major << 8 | minor) as libc::dev_t, ino as libc::ino_t));
+    }
+    None
+}
+
+/// unshare PLT 替身：调用原始 unshare，然后在新 namespace 中 remount。
+///
+/// NeoZygisk 的 unshare hook 会在 old_unshare 前执行 setns 到缓存 namespace，
+/// 然后 old_unshare(CLONE_NEWNS) 创建新 namespace。我们的 hook 在 old_unshare
+/// 返回后触发——此时 app 已在新 namespace 中，直接 umount + bind mount 即可。
+///
+/// 安全：此函数在 app specialize 的单线程环境中执行，libc 调用均安全。
+unsafe extern "C" fn unshare_hook(flags: libc::c_int) -> libc::c_int {
+    // 调用原始 unshare（链式调用 NeoZygisk 的 hook）
+    let result = unsafe { ORIGINAL_UNSHARE.unwrap_unchecked()(flags) };
+
+    // 仅在 CLONE_NEWNS 且 hook 状态已初始化时执行 remount
+    if (flags & libc::CLONE_NEWNS) != 0
+        && UNSHARE_HOOK_INITIALIZED.load(Ordering::Acquire)
+        && result == 0
+    {
+        // 安全：unshare_hook 在 app specialize 的单线程环境中执行，
+        // UNSHARE_SOURCE_PTR 由 init_unshare_hook_state 设置且持有 'static 引用。
+        unsafe {
+            let target = c"/proc/cpuinfo";
+
+            // 防御性卸载（新 namespace 中可能有继承的挂载）
+            libc::umount2(target.as_ptr(), libc::MNT_DETACH);
+
+            // bind mount fake cpuinfo
+            let ret = libc::mount(
+                UNSHARE_SOURCE_PTR,
+                target.as_ptr(),
+                std::ptr::null(),
+                MS_BIND,
+                std::ptr::null(),
+            );
+
+            if ret == 0 {
+                info!("unshare hook: remounted fake cpuinfo in new namespace");
+            } else {
+                warn!(
+                    "unshare hook: remount failed: {}",
+                    std::io::Error::last_os_error()
+                );
+            }
+        }
+    }
+
+    result
+}
+
+// ---------------------------------------------------------------------------
+// GOT entry 恢复：DlClose 前必须将 unshare 的 GOT entry 指回 libc 原始地址
+// ---------------------------------------------------------------------------
+//
+// Zygisk 通过 PLT hook 将 unshare 的 GOT entry 从 libc 原始地址改为指向我们的
+// hook 函数。DlCloseModuleLibrary 会 unmap 模块内存，但不会恢复 GOT entry，
+// 导致 GOT 悬空指针 → app 后续调用 unshare 时 crash。
+//
+// 解决方案：在 post_app_specialize（DlClose 之前）解析 app 的 ELF，找到 unshare
+// 的 JMP_SLOT relocation，将 GOT entry 恢复为 libc 中的真实地址。
+// 使用 getauxval(AT_PHDR) 定位 ELF header，避免依赖 _DYNAMIC 符号。
+
+// ELF 类型定义（aarch64 = Elf64_*，arm = Elf32_*）
+#[cfg(target_arch = "aarch64")]
+type ElfAddr = u64;
+#[cfg(target_arch = "aarch64")]
+type ElfWord = u32;
+#[cfg(target_arch = "aarch64")]
+type ElfXword = u64;
+#[cfg(target_arch = "aarch64")]
+type ElfSxword = i64;
+
+#[cfg(target_arch = "arm")]
+type ElfAddr = u32;
+#[cfg(target_arch = "arm")]
+type ElfWord = u32;
+#[cfg(target_arch = "arm")]
+type ElfXword = u32;
+#[cfg(target_arch = "arm")]
+type ElfSxword = i32;
+
+#[repr(C)]
+struct ElfDyn {
+    d_tag: ElfSxword,
+    d_val: ElfXword,
+}
+
+#[repr(C)]
+struct ElfSym {
+    st_name: ElfWord,
+    #[cfg(target_arch = "aarch64")]
+    st_info: u8,
+    #[cfg(target_arch = "aarch64")]
+    st_other: u8,
+    #[cfg(target_arch = "aarch64")]
+    st_shndx: u16,
+    #[cfg(target_arch = "arm")]
+    st_value: ElfAddr,
+    #[cfg(target_arch = "arm")]
+    st_size: ElfXword,
+    #[cfg(target_arch = "aarch64")]
+    st_value: ElfAddr,
+    #[cfg(target_arch = "aarch64")]
+    st_size: ElfXword,
+    #[cfg(target_arch = "arm")]
+    st_info: u8,
+    #[cfg(target_arch = "arm")]
+    st_other: u8,
+    #[cfg(target_arch = "arm")]
+    st_shndx: u16,
+}
+
+#[repr(C)]
+struct ElfRela {
+    r_offset: ElfAddr,
+    r_info: ElfXword,
+    r_addend: ElfSxword,
+}
+
+const PT_DYNAMIC: ElfWord = 2;
+
+#[cfg(target_arch = "aarch64")]
+const R_AARCH64_JUMP_SLOT: ElfXword = 1026;
+#[cfg(target_arch = "arm")]
+const R_ARM_JUMP_SLOT: ElfXword = 22;
+
+#[cfg(target_arch = "aarch64")]
+fn is_jump_slot(r_type: ElfXword) -> bool {
+    r_type == R_AARCH64_JUMP_SLOT
+}
+
+#[cfg(target_arch = "arm")]
+fn is_jump_slot(r_type: ElfXword) -> bool {
+    r_type == R_ARM_JUMP_SLOT
+}
+
+/// 恢复 unshare 的 GOT entry 到 libc 原始地址。
+///
+/// 使用 dl_iterate_phdr 定位 libandroid_runtime.so 的 ELF，解析其 DT_JMPREL
+/// relocation 表找到 unshare 的条目，将 GOT entry 写回 ORIGINAL_UNSHARE。
+/// 必须在 DlCloseModuleLibrary 之前调用，否则 GOT 悬空指针导致 crash。
+fn restore_unshare_got() {
+    let Some(original_fn) = (unsafe { ORIGINAL_UNSHARE }) else {
+        return;
+    };
+
+    // 1. 使用 dl_iterate_phdr 找到 libandroid_runtime.so 的 ELF base address
+    let mut phdr_info: *const libc::dl_phdr_info = std::ptr::null();
+    unsafe {
+        libc::dl_iterate_phdr(
+            Some(find_libandroid_runtime_cb),
+            &mut phdr_info as *mut _ as *mut _,
+        );
+    }
+    let Some(info) = (unsafe { phdr_info.as_ref() }) else {
+        warn!("restore_unshare_got: libandroid_runtime.so not found via dl_iterate_phdr");
+        return;
+    };
+
+    let base = info.dlpi_addr as usize;
+    let phdr_ptr = info.dlpi_phdr;
+    let phnum = info.dlpi_phnum as usize;
+
+    // 2. 从 PT_DYNAMIC 获取 dynamic section 地址和大小
+    let mut dyn_addr: *const ElfDyn = std::ptr::null();
+    let mut dyn_size: usize = 0;
+    for i in 0..phnum {
+        let ph = unsafe { &*phdr_ptr.add(i) };
+        if ph.p_type == PT_DYNAMIC {
+            dyn_addr = (base + ph.p_vaddr as usize) as *const ElfDyn;
+            dyn_size = ph.p_filesz as usize / std::mem::size_of::<ElfDyn>();
+            break;
+        }
+    }
+    if dyn_addr.is_null() {
+        warn!("restore_unshare_got: PT_DYNAMIC not found in libandroid_runtime.so");
+        return;
+    }
+
+    // 3. 解析 dynamic entries
+    let mut symtab: *const ElfSym = std::ptr::null();
+    let mut strtab: *const u8 = std::ptr::null();
+    let mut jmprel: *const ElfRela = std::ptr::null();
+    let mut jmprelsz: usize = 0;
+
+    for i in 0..dyn_size {
+        let entry = unsafe { &*dyn_addr.add(i) };
+        match entry.d_tag {
+            6 => symtab = (base + entry.d_val as usize) as *const ElfSym,
+            5 => strtab = (base + entry.d_val as usize) as *const u8,
+            23 => jmprel = (base + entry.d_val as usize) as *const ElfRela,
+            2 => jmprelsz = entry.d_val as usize,
+            0 => break,
+            _ => {}
+        }
+    }
+
+    if symtab.is_null() || strtab.is_null() || jmprel.is_null() || jmprelsz == 0 {
+        warn!("restore_unshare_got: missing ELF dynamic entries in libandroid_runtime.so");
+        return;
+    }
+
+    // 4. 遍历 JMPREL relocation 表，找到 unshare 的条目并恢复 GOT entry
+    let num_relas = jmprelsz / std::mem::size_of::<ElfRela>();
+    let original_ptr = original_fn as *const ();
+    let mut restored = false;
+
+    for i in 0..num_relas {
+        let rela = unsafe { &*jmprel.add(i) };
+        let r_type = rela.r_info & 0xffffffff;
+
+        if !is_jump_slot(r_type) {
+            continue;
+        }
+
+        let sym_idx = (rela.r_info >> 32) as usize;
+        let sym = unsafe { &*symtab.add(sym_idx) };
+        let name = unsafe {
+            std::ffi::CStr::from_ptr(strtab.add(sym.st_name as usize) as *const libc::c_char)
+        };
+
+        if name.to_bytes() == b"unshare" {
+            let got_entry = (base + rela.r_offset as usize) as *mut *const ();
+            // 安全：GOT entry 是可写的（pre-app-specialize 时 lsplt 已修改过它）。
+            unsafe {
+                libc::mprotect(
+                    ((base + rela.r_offset as usize) & !0xfff) as *mut libc::c_void,
+                    0x1000,
+                    libc::PROT_READ | libc::PROT_WRITE,
+                );
+                got_entry.write(original_ptr);
+            }
+            restored = true;
+            info!("restore_unshare_got: restored GOT entry for unshare");
+            break;
+        }
+    }
+
+    if !restored {
+        warn!("restore_unshare_got: unshare relocation not found in JMPREL");
+    }
+}
+
+/// dl_iterate_phdr 回调：查找 libandroid_runtime.so 的 dl_phdr_info。
+///
+/// 使用 /proc/self/maps 中解析到的 device/inode 进行匹配（存储在
+/// find_lib_dev_ino 的返回值中，通过 closure 捕获）。
+/// 匹配成功后将 dl_phdr_info 指针写入 user_data。
+///
+/// # Safety
+/// user_data 必须是指向 `*const libc::dl_phdr_info` 的有效指针。
+unsafe extern "C" fn find_libandroid_runtime_cb(
+    info: *mut libc::dl_phdr_info,
+    _size: usize,
+    user_data: *mut libc::c_void,
+) -> libc::c_int {
+    let info_ref = unsafe { &*info };
+    // dlpi_name 为库的路径，检查是否包含 libandroid_runtime.so
+    if !info_ref.dlpi_name.is_null() {
+        let name = unsafe { std::ffi::CStr::from_ptr(info_ref.dlpi_name) };
+        if let Ok(s) = name.to_str()
+            && s.contains("libandroid_runtime.so")
+        {
+            unsafe {
+                *(user_data as *mut *const libc::dl_phdr_info) = info;
+            }
+            return 1; // 找到，停止迭代
+        }
+    }
+    0 // 继续迭代
+}
+
+/// CPU 伪装 unshare hook 的 DlClose 前清理。
+///
+/// 在 `post_app_specialize` 中、`DlCloseModuleLibrary` 之前调用。
+/// 恢复 unshare 的 GOT entry 到 libc 原始地址，防止 DlClose 后 GOT 悬空指针。
+pub fn cleanup_cpu_spoof_hook() {
+    if HOOK_REGISTERED.load(Ordering::Acquire) {
+        restore_unshare_got();
+    }
 }
 
 /// Companion 进程入口：处理 CPU 伪装请求。
