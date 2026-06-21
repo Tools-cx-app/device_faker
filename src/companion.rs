@@ -255,6 +255,13 @@ fn apply_resetprop_session(
         resetprop_delete(key)?;
     }
 
+    // Compact prop area to reclaim holes left by deletes/overwrites.
+    // Android's property area has a fixed 128 KB limit; without compaction
+    // repeated set/delete cycles can exhaust it.
+    if let Err(e) = sys_prop::compact(None) {
+        warn!("prop area compact failed (non-fatal): {e}");
+    }
+
     spawn_restore_watcher(request.pid, request.props, request.delete_props, backups)?;
 
     Ok(backups_for_response)
@@ -267,6 +274,11 @@ fn restore_properties(request: RestoreRequest) -> anyhow::Result<()> {
 
     for (key, value) in request.props {
         apply_resetprop(&key, &value)?;
+    }
+
+    // Compact after restoring originals to reclaim any holes.
+    if let Err(e) = sys_prop::compact(None) {
+        warn!("prop area compact after restore failed (non-fatal): {e}");
     }
 
     Ok(())
@@ -289,8 +301,12 @@ fn new_resetprop() -> anyhow::Result<ResetProp> {
         .map_err(|e| anyhow::anyhow!("failed to initialize system property API: {e}"))?;
 
     Ok(ResetProp {
-        // Match the old external `resetprop key value` behavior instead of forcing `-n`.
-        skip_svc: false,
+        // `-n`: bypass property_service, direct mmap write.
+        // All properties we set (ro.*, persist.*, etc.) benefit from direct
+        // mmap — no SELinux policy denials, no init service restarts, no
+        // PROP_VALUE_MAX limit.  ro.* is forced to mmap regardless, but
+        // skip_svc=true also covers non-ro keys in custom_props.
+        skip_svc: true,
         persistent: false,
         persist_only: false,
         verbose: false,
@@ -472,7 +488,10 @@ fn watch_via_inotify(
         }
 
         // 检查是否有进程退出事件
-        let process_exited = events.iter().take(nfds as usize).any(|e| e.u64 == pidfd as u64);
+        let process_exited = events
+            .iter()
+            .take(nfds as usize)
+            .any(|e| e.u64 == pidfd as u64);
         if process_exited {
             if is_spoof_applied {
                 restore_props_batch(backups)?;
@@ -589,12 +608,20 @@ fn apply_props_batch(
         resetprop_delete(key)?;
     }
 
+    if let Err(e) = sys_prop::compact(None) {
+        warn!("prop area compact failed (non-fatal): {e}");
+    }
+
     Ok(())
 }
 
 fn restore_props_batch(backups: &[PropBackup]) -> anyhow::Result<()> {
     for entry in backups {
         apply_resetprop(&entry.key, &entry.original_value)?;
+    }
+
+    if let Err(e) = sys_prop::compact(None) {
+        warn!("prop area compact after restore failed (non-fatal): {e}");
     }
 
     Ok(())
