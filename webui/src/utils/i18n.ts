@@ -365,7 +365,7 @@ export const messages = {
         },
         debug: {
           label: '调试模式',
-          desc: '启用后可在 logcat 中查看详细日志',
+          desc: '启用后可在日志目录查看日志文件',
         },
       },
       tools: {
@@ -762,7 +762,7 @@ export const messages = {
         },
         debug: {
           label: 'Debug Mode',
-          desc: 'Enable to see detailed logs in logcat',
+          desc: 'Enable to view log files in the log directory',
         },
       },
       tools: {
@@ -1166,7 +1166,7 @@ export const messages = {
         },
         debug: {
           label: 'Hata Ayıklama Modu',
-          desc: "Logcat'de detaylı günlükleri aktifleştirir.",
+          desc: 'Günlük dizinindeki günlük dosyalarını görüntülemeyi etkinleştirir.',
         },
       },
       tools: {

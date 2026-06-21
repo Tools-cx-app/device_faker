@@ -103,7 +103,13 @@
     </el-select>
   </el-form-item>
 
-  <el-form-item :label="t('templates.fields.cpu_spoof')">
+  <el-form-item
+    v-if="
+      formData.mode === 'companion' ||
+      (!formData.mode && configStore.config.default_mode === 'companion')
+    "
+    :label="t('templates.fields.cpu_spoof')"
+  >
     <el-select
       v-model="formData.cpu_spoof"
       :placeholder="t('templates.placeholders.cpu_spoof')"
@@ -114,7 +120,13 @@
     </el-select>
   </el-form-item>
 
-  <el-form-item :label="t('templates.fields.cpu_spoof_custom')">
+  <el-form-item
+    v-if="
+      formData.mode === 'companion' ||
+      (!formData.mode && configStore.config.default_mode === 'companion')
+    "
+    :label="t('templates.fields.cpu_spoof_custom')"
+  >
     <el-input
       v-model="formData.cpu_spoof_custom"
       type="textarea"
