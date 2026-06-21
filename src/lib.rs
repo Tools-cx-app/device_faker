@@ -16,7 +16,7 @@ use companion::{
     spoof_system_props_via_companion,
 };
 use config::{Config, MergedAppConfig};
-use cpu_spoof::{apply_cpu_spoof, cleanup_cpu_spoof_hook};
+use cpu_spoof::apply_cpu_spoof;
 use hooks::{hook_build_fields, hook_native_property_get, hook_system_properties};
 use jni::{EnvUnowned, errors::ThrowRuntimeExAndDefault};
 use log::{LevelFilter, error, info};
@@ -57,9 +57,6 @@ impl ZygiskModule for MyModule {
         _env: EnvUnowned,
         _args: &<V4 as ZygiskRaw>::AppSpecializeArgs,
     ) {
-        // 恢复 unshare 的 GOT entry 到 libc 原始地址，防止 DlClose 后悬空指针。
-        cleanup_cpu_spoof_hook();
-
         if !IS_FULL_MODE.load(std::sync::atomic::Ordering::Relaxed) {
             api.set_option(ZygiskOption::DlCloseModuleLibrary);
         }

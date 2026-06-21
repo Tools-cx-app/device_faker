@@ -348,12 +348,204 @@ fn watch_process_state_and_sync_props(
     delete_props: &[String],
     backups: &[PropBackup],
 ) -> anyhow::Result<()> {
+    // 优先使用 inotify 监听 oom_score_adj（事件驱动，零轮询）。
+    // 回退到 /proc/<pid>/cgroup 轮询（inotify 在部分设备/内核上不可用）。
+    match watch_via_inotify(pid, props, delete_props, backups) {
+        Ok(()) => return Ok(()),
+        Err(e) => {
+            warn!("inotify on oom_score_adj unavailable ({e}), falling back to cgroup polling");
+        }
+    }
+
+    watch_via_cgroup_polling(pid, props, delete_props, backups)
+}
+
+/// 事件驱动方案：inotify 监听 /proc/<pid>/oom_score_adj + pidfd 监听进程退出。
+///
+/// Android 的 OomAdjuster 在 app 前后台切换时写入 oom_score_adj：
+/// - 前台: 0
+/// - 可见: 100
+/// - 后台/缓存: 200-900+
+///
+/// inotify IN_MODIFY 在 procfs 的 oom_score_adj 上已验证可用（Android 内核）。
+/// 使用 epoll 同时监听 inotify fd 和 pidfd，阻塞直到事件到达，零轮询。
+fn watch_via_inotify(
+    pid: u32,
+    props: &HashMap<String, String>,
+    delete_props: &[String],
+    backups: &[PropBackup],
+) -> anyhow::Result<()> {
+    const BACKGROUND_THRESHOLD: i32 = 200;
+    const BACKGROUND_DEBOUNCE: Duration = Duration::from_secs(2);
+
+    // pidfd：事件驱动检测 app 退出
+    let pidfd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid as libc::pid_t, 0u32) };
+    if pidfd < 0 {
+        anyhow::bail!("pidfd_open failed");
+    }
+    let pidfd = pidfd as i32;
+
+    // inotify：监听 oom_score_adj 变化
+    let ifd = unsafe { libc::inotify_init() };
+    if ifd < 0 {
+        unsafe { libc::close(pidfd) };
+        anyhow::bail!("inotify_init failed");
+    }
+    let oom_path = format!("/proc/{pid}/oom_score_adj\0");
+    let wd = unsafe {
+        libc::inotify_add_watch(
+            ifd,
+            oom_path.as_ptr() as *const libc::c_char,
+            libc::IN_MODIFY,
+        )
+    };
+    if wd < 0 {
+        unsafe {
+            libc::close(ifd);
+            libc::close(pidfd);
+        }
+        anyhow::bail!("inotify_add_watch on oom_score_adj failed");
+    }
+    let wd = wd as u32;
+
+    // epoll：同时监听 pidfd 和 inotify fd
+    let efd = unsafe { libc::epoll_create1(0) };
+    if efd < 0 {
+        unsafe {
+            libc::inotify_rm_watch(ifd, wd);
+            libc::close(ifd);
+            libc::close(pidfd);
+        }
+        anyhow::bail!("epoll_create1 failed");
+    }
+    let mut ev = libc::epoll_event {
+        events: libc::EPOLLIN as u32,
+        u64: pidfd as u64,
+    };
+    unsafe { libc::epoll_ctl(efd, libc::EPOLL_CTL_ADD, pidfd, &mut ev) };
+    ev.u64 = ifd as u64;
+    unsafe { libc::epoll_ctl(efd, libc::EPOLL_CTL_ADD, ifd, &mut ev) };
+
+    let mut is_spoof_applied = true;
+    let mut background_since: Option<Instant> = None;
+    let mut events = [libc::epoll_event { events: 0, u64: 0 }; 2];
+
+    info!("restore watcher: inotify monitoring oom_score_adj for pid {pid}");
+
+    loop {
+        let timeout = if let Some(bg_start) = background_since {
+            // 后台 debounce 等待中，计算剩余时间
+            let remaining = BACKGROUND_DEBOUNCE
+                .checked_sub(bg_start.elapsed())
+                .unwrap_or(Duration::ZERO);
+            remaining.as_millis() as i32
+        } else {
+            -1 // 无限阻塞
+        };
+
+        let nfds = unsafe { libc::epoll_wait(efd, events.as_mut_ptr(), 2, timeout) };
+
+        // debounce 到期检查
+        if let Some(bg_start) = background_since
+            && bg_start.elapsed() >= BACKGROUND_DEBOUNCE
+        {
+            if is_spoof_applied {
+                restore_props_batch(backups)?;
+                is_spoof_applied = false;
+                info!("restore watcher restored props for pid {pid}");
+            }
+            background_since = None;
+        }
+
+        if nfds < 0 {
+            let err = std::io::Error::last_os_error();
+            if err.kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
+            warn!("restore watcher: epoll_wait error: {err}");
+            break;
+        }
+
+        if nfds == 0 {
+            // timeout — debounce 可能已处理
+            continue;
+        }
+
+        // 检查是否有进程退出事件
+        let process_exited = events.iter().take(nfds as usize).any(|e| e.u64 == pidfd as u64);
+        if process_exited {
+            if is_spoof_applied {
+                restore_props_batch(backups)?;
+            }
+            info!("restore watcher: app pid {pid} exited (pidfd event)");
+            break;
+        }
+
+        // oom_score_adj 变化
+        for ev in events.iter().take(nfds as usize) {
+            if ev.u64 == ifd as u64 {
+                let mut buf = [0u8; 512];
+                let _ =
+                    unsafe { libc::read(ifd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
+
+                let oom_val = read_oom_score_adj(pid);
+                if oom_val >= BACKGROUND_THRESHOLD {
+                    let bg_start = *background_since.get_or_insert_with(Instant::now);
+                    if is_spoof_applied && bg_start.elapsed() >= BACKGROUND_DEBOUNCE {
+                        restore_props_batch(backups)?;
+                        is_spoof_applied = false;
+                        info!("restore watcher restored props for pid {pid} (oom={oom_val})");
+                        background_since = None;
+                    }
+                } else {
+                    background_since = None;
+                    if !is_spoof_applied {
+                        apply_props_batch(props, delete_props)?;
+                        is_spoof_applied = true;
+                        info!(
+                            "restore watcher re-applied spoof props for pid {pid} (oom={oom_val})"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    unsafe {
+        libc::epoll_ctl(efd, libc::EPOLL_CTL_DEL, ifd, std::ptr::null_mut());
+        libc::epoll_ctl(efd, libc::EPOLL_CTL_DEL, pidfd, std::ptr::null_mut());
+        libc::inotify_rm_watch(ifd, wd);
+        libc::close(efd);
+        libc::close(ifd);
+        libc::close(pidfd);
+    }
+    Ok(())
+}
+
+/// 读取 /proc/<pid>/oom_score_adj，失败返回 0（视为前台）。
+fn read_oom_score_adj(pid: u32) -> i32 {
+    let path = format!("/proc/{pid}/oom_score_adj");
+    fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| s.trim().parse::<i32>().ok())
+        .unwrap_or(0)
+}
+
+/// 轮询回退方案：/proc/<pid>/cgroup 检查 top-app（与原实现相同）。
+fn watch_via_cgroup_polling(
+    pid: u32,
+    props: &HashMap<String, String>,
+    delete_props: &[String],
+    backups: &[PropBackup],
+) -> anyhow::Result<()> {
     const POLL_INTERVAL: Duration = Duration::from_millis(200);
     const BACKGROUND_DEBOUNCE: Duration = Duration::from_secs(2);
 
     let proc_path = format!("/proc/{pid}");
     let mut is_spoof_applied = true;
     let mut background_since: Option<Instant> = None;
+
+    info!("restore watcher: cgroup polling for pid {pid}");
 
     loop {
         if !std::path::Path::new(&proc_path).exists() {
@@ -368,14 +560,14 @@ fn watch_process_state_and_sync_props(
             if !is_spoof_applied {
                 apply_props_batch(props, delete_props)?;
                 is_spoof_applied = true;
-                info!("restore watcher re-applied spoof props for pid {}", pid);
+                info!("restore watcher re-applied spoof props for pid {pid}");
             }
         } else {
             let bg_start = background_since.get_or_insert_with(Instant::now);
             if is_spoof_applied && bg_start.elapsed() >= BACKGROUND_DEBOUNCE {
                 restore_props_batch(backups)?;
                 is_spoof_applied = false;
-                info!("restore watcher restored props for pid {}", pid);
+                info!("restore watcher restored props for pid {pid}");
             }
         }
 
