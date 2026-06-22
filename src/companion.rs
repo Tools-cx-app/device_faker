@@ -217,6 +217,23 @@ pub(crate) fn write_companion_response(
     Ok(())
 }
 
+/// Rebuild property areas for ALL distinct contexts touched by the given keys.
+/// More complete than single-context rebuild; handles custom_props spanning
+/// multiple SELinux contexts (e.g. ro.* + debug.* + gsm.*).
+fn rebuild_all_contexts(keys_iter: impl Iterator<Item = impl AsRef<str>>) {
+    let mut contexts: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for key in keys_iter {
+        if let Ok(ctx) = sys_prop::get_context(key.as_ref()) {
+            contexts.insert(ctx);
+        }
+    }
+    for ctx in &contexts {
+        if let Err(e) = sys_prop::rebuild(ctx) {
+            warn!("prop area rebuild for {ctx} failed (non-fatal): {e}");
+        }
+    }
+}
+
 fn apply_resetprop_session(
     request: ResetpropSessionRequest,
 ) -> anyhow::Result<HashMap<String, String>> {
@@ -255,12 +272,8 @@ fn apply_resetprop_session(
         resetprop_delete(key)?;
     }
 
-    // Compact prop area to reclaim holes left by deletes/overwrites.
-    // Android's property area has a fixed 128 KB limit; without compaction
-    // repeated set/delete cycles can exhaust it.
-    if let Err(e) = sys_prop::compact(None) {
-        warn!("prop area compact failed (non-fatal): {e}");
-    }
+    // Rebuild prop area to reclaim holes left by deletes/overwrites.
+    rebuild_all_contexts(request.props.keys().chain(request.delete_props.iter()));
 
     spawn_restore_watcher(request.pid, request.props, request.delete_props, backups)?;
 
@@ -272,14 +285,12 @@ fn restore_properties(request: RestoreRequest) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    for (key, value) in request.props {
-        apply_resetprop(&key, &value)?;
+    for (key, value) in &request.props {
+        apply_resetprop(key, value)?;
     }
 
-    // Compact after restoring originals to reclaim any holes.
-    if let Err(e) = sys_prop::compact(None) {
-        warn!("prop area compact after restore failed (non-fatal): {e}");
-    }
+    // Rebuild after restoring originals to reclaim any holes.
+    rebuild_all_contexts(request.props.keys());
 
     Ok(())
 }
@@ -311,6 +322,7 @@ fn new_resetprop() -> anyhow::Result<ResetProp> {
         persist_only: false,
         verbose: false,
         show_context: false,
+        rebuild: false,
     })
 }
 
@@ -608,9 +620,7 @@ fn apply_props_batch(
         resetprop_delete(key)?;
     }
 
-    if let Err(e) = sys_prop::compact(None) {
-        warn!("prop area compact failed (non-fatal): {e}");
-    }
+    rebuild_all_contexts(props.keys().chain(delete_props.iter()));
 
     Ok(())
 }
@@ -620,9 +630,8 @@ fn restore_props_batch(backups: &[PropBackup]) -> anyhow::Result<()> {
         apply_resetprop(&entry.key, &entry.original_value)?;
     }
 
-    if let Err(e) = sys_prop::compact(None) {
-        warn!("prop area compact after restore failed (non-fatal): {e}");
-    }
+    // Rebuild using the first backup's key to find the context.
+    rebuild_all_contexts(backups.iter().map(|b| &b.key));
 
     Ok(())
 }
