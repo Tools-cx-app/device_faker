@@ -1,9 +1,7 @@
-#[cfg(target_os = "android")]
 mod atexit;
 mod companion;
 mod config;
 mod cpu_spoof;
-#[cfg(target_os = "android")]
 mod file_logger;
 mod hooks;
 mod state;
@@ -36,7 +34,6 @@ impl ZygiskModule for MyModule {
     type Api = V4;
 
     fn on_load(&self, _api: ZygiskApi<V4>, _env: EnvUnowned) {
-        #[cfg(target_os = "android")]
         file_logger::init_buffer_only();
     }
 

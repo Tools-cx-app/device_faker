@@ -134,7 +134,6 @@ pub fn send_companion_command(
 
 pub fn handle_companion_request(stream: &mut UnixStream) {
     // companion 进程不会调用 ZygiskModule::on_load，因此需要自行初始化日志。
-    #[cfg(target_os = "android")]
     crate::file_logger::init();
 
     let request = match read_companion_request(stream) {

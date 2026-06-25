@@ -190,7 +190,6 @@ pub fn handle_companion_cpu_spoof(
     request: crate::companion::CpuSpoofRequest,
 ) {
     // companion 进程不会调用 ZygiskModule::on_load，因此需要自行初始化日志。
-    #[cfg(target_os = "android")]
     crate::file_logger::init();
 
     let pid = request.pid;
@@ -811,7 +810,6 @@ fn set_selinux_context(path: &str) {
 
     match result {
         Ok(()) => {
-            #[cfg(target_os = "android")]
             info!("Set SELinux context {SELINUX_CONTEXT} on {path}");
         }
         Err(e) => {
