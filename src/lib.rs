@@ -17,7 +17,7 @@ use config::{Config, MergedAppConfig};
 use cpu_spoof::apply_cpu_spoof;
 use hooks::{hook_build_fields, hook_native_property_get, hook_system_properties};
 use jni::{EnvUnowned, errors::ThrowRuntimeExAndDefault};
-use log::{LevelFilter, error, info};
+use log::{LevelFilter, debug, error, info};
 use state::{FAKE_PROPS, IS_FULL_MODE};
 use zygisk_api::{
     ZygiskModule,
@@ -80,11 +80,7 @@ impl MyModule {
 
         // 在 pre_app_specialize 退出前统一 flush，确保 on_load + specialize 期间
         // 产生的所有日志都能发给 companion 落盘。
-        if let Err(e) = flush_log_buffer_to_companion(api) {
-            // 这里不能用 error!，否则会产生新的日志又无法 flush。
-            // 静默失败，日志将丢失。
-            let _ = e;
-        }
+        let _ = flush_log_buffer_to_companion(api);
 
         result
     }
@@ -115,51 +111,40 @@ impl MyModule {
 
         configure_log_level(config.debug);
 
-        if config.debug {
-            info!(
-                "Config loaded with {} apps and {} templates",
-                config.apps.len(),
-                config.templates.len()
-            );
-        }
+        debug!(
+            "Config loaded with {} apps and {} templates",
+            config.apps.len(),
+            config.templates.len()
+        );
 
         let merged = config
             .get_merged_config(&package_with_user)
             .or_else(|| config.get_merged_config(&package_name));
 
         let Some(merged) = merged else {
-            if config.debug {
-                info!("App {package_name} (user {user_id}) not in config, unloading module");
-            }
+            debug!("App {package_name} (user {user_id}) not in config, unloading module");
             api.set_option(ZygiskOption::DlCloseModuleLibrary);
             return Ok(());
         };
 
         if merged.force_denylist_unmount {
             api.set_option(ZygiskOption::ForceDenylistUnmount);
-            if config.debug {
-                info!("Force denylist unmount enabled for {package_name}");
-            }
+            info!("Force denylist unmount enabled for {package_name}");
         }
 
-        if config.debug {
-            info!(
-                "Using mode: {} for app: {package_name} (user {user_id})",
-                merged.mode
-            );
-        }
+        info!(
+            "Using mode: {} for app: {package_name} (user {user_id})",
+            merged.mode
+        );
 
         hook_build_fields(env, &merged)?;
-        if config.debug {
-            info!("Build fields faked successfully");
-        }
+
+        debug!("Build fields faked successfully");
 
         match SpoofMode::from(&merged.mode) {
-            SpoofMode::Lite => Self::apply_lite_mode(api, config.debug),
-            SpoofMode::Full => Self::apply_full_mode(api, env, &merged, config.debug),
-            SpoofMode::Companion => {
-                Self::apply_companion_mode(api, &package_with_user, &merged, config.debug)
-            }
+            SpoofMode::Lite => Self::apply_lite_mode(api),
+            SpoofMode::Full => Self::apply_full_mode(api, env, &merged),
+            SpoofMode::Companion => Self::apply_companion_mode(api, &package_with_user, &merged),
         }
     }
 
@@ -201,12 +186,10 @@ impl MyModule {
         Ok(result)
     }
 
-    fn apply_lite_mode(api: &mut ZygiskApi<V4>, debug: bool) -> anyhow::Result<()> {
+    fn apply_lite_mode(api: &mut ZygiskApi<V4>) -> anyhow::Result<()> {
         FAKE_PROPS.lock().unwrap().clear();
         IS_FULL_MODE.store(false, std::sync::atomic::Ordering::Relaxed);
-        if debug {
-            info!("Lite mode: only Build fields faked, unloading module");
-        }
+        info!("Lite mode: only Build fields faked, unloading module");
         api.set_option(ZygiskOption::DlCloseModuleLibrary);
         Ok(())
     }
@@ -215,25 +198,18 @@ impl MyModule {
         api: &mut ZygiskApi<V4>,
         env: &mut EnvUnowned,
         merged: &MergedAppConfig,
-        debug: bool,
     ) -> anyhow::Result<()> {
-        if debug {
-            info!("Full mode: faking SystemProperties");
-        }
+        info!("Full mode: faking SystemProperties");
 
         let prop_map = Config::build_merged_property_map(merged);
-        if debug {
-            info!("Property map created with {} entries", prop_map.len());
-        }
+        debug!("Property map created with {} entries", prop_map.len());
 
         *FAKE_PROPS.lock().unwrap() = prop_map;
         IS_FULL_MODE.store(true, std::sync::atomic::Ordering::Relaxed);
         hook_system_properties(api, env)?;
         hook_native_property_get(api)?;
 
-        if debug {
-            info!("SystemProperties faked successfully, module will stay loaded");
-        }
+        info!("SystemProperties faked successfully, module will stay loaded");
 
         Ok(())
     }
@@ -242,27 +218,21 @@ impl MyModule {
         api: &mut ZygiskApi<V4>,
         package_name: &str,
         merged: &MergedAppConfig,
-        debug: bool,
     ) -> anyhow::Result<()> {
-        if debug {
-            info!("Companion mode: using companion process");
-        }
+        info!("Companion mode: using companion process");
 
         let prop_map = Config::build_merged_property_map_for_resetprop(merged);
         let delete_props = Config::build_delete_props_list(merged);
         spoof_system_props_via_companion(api, &prop_map, &delete_props, package_name)?;
 
-        if debug {
-            info!("Companion property spoofing completed");
-        }
+        info!("Companion property spoofing completed");
 
-        if let Err(err) = apply_cpu_spoof(api, merged, package_name, debug) {
+        if let Err(err) = apply_cpu_spoof(api, merged, package_name) {
             error!("Failed to apply CPU spoof: {err:?}");
-        } else if debug
-            && merged
-                .cpuinfo_content
-                .as_ref()
-                .is_some_and(|c| !c.is_empty())
+        } else if merged
+            .cpuinfo_content
+            .as_ref()
+            .is_some_and(|c| !c.is_empty())
         {
             info!("CPU spoof applied for {package_name}");
         }

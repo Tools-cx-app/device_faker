@@ -70,7 +70,6 @@ pub fn apply_cpu_spoof(
     api: &mut ZygiskApi<V4>,
     merged: &MergedAppConfig,
     package_name: &str,
-    debug: bool,
 ) -> anyhow::Result<()> {
     let Some(content) = &merged.cpuinfo_content else {
         return Ok(());
@@ -80,9 +79,7 @@ pub fn apply_cpu_spoof(
         return Ok(());
     }
 
-    if debug {
-        info!("Applying CPU spoof for {package_name}");
-    }
+    info!("Applying CPU spoof for {package_name}");
 
     init_unshare_hook_state(content);
 
@@ -106,9 +103,7 @@ pub fn apply_cpu_spoof(
         );
     }
 
-    if debug {
-        info!("CPU spoof applied successfully for {package_name}");
-    }
+    info!("CPU spoof applied successfully for {package_name}");
 
     Ok(())
 }
