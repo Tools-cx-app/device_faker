@@ -157,7 +157,7 @@ impl MyModule {
             info!("Build fields faked successfully");
         }
 
-        match SpoofMode::from_mode_str(&merged.mode) {
+        match SpoofMode::from(&merged.mode) {
             SpoofMode::Lite => Self::apply_lite_mode(api, config.debug),
             SpoofMode::Full => Self::apply_full_mode(api, env, &merged, config.debug),
             SpoofMode::Companion => {
@@ -284,9 +284,9 @@ enum SpoofMode {
     Companion,
 }
 
-impl SpoofMode {
-    fn from_mode_str(value: &str) -> Self {
-        match value {
+impl From<&String> for SpoofMode {
+    fn from(value: &String) -> Self {
+        match value.as_str() {
             "lite" => Self::Lite,
             "full" => Self::Full,
             "companion" => Self::Companion,
