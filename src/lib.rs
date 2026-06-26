@@ -4,15 +4,14 @@ mod config;
 mod cpu_spoof;
 mod file_logger;
 mod hooks;
+mod props;
 mod state;
+mod watcher;
 
 use std::{fs, path::Path};
 
 use anyhow::Context;
-use companion::{
-    handle_companion_request, restore_previous_resetprop_if_needed,
-    spoof_system_props_via_companion,
-};
+use companion::handle_companion_request;
 use config::{Config, MergedAppConfig};
 use cpu_spoof::apply_cpu_spoof;
 use hooks::{hook_build_fields, hook_native_property_get, hook_system_properties};
@@ -94,7 +93,6 @@ impl MyModule {
         let package_name = Self::extract_package_name(env, args)?;
         let user_id = Self::extract_android_user_id(args);
         let package_with_user = format!("{package_name}@{user_id}");
-        restore_previous_resetprop_if_needed(api, &package_with_user)?;
 
         let config = match load_config() {
             Ok(Some(cfg)) => cfg,
@@ -223,7 +221,11 @@ impl MyModule {
 
         let prop_map = Config::build_merged_property_map_for_resetprop(merged);
         let delete_props = Config::build_delete_props_list(merged);
-        spoof_system_props_via_companion(api, &prop_map, &delete_props, package_name)?;
+        if let Err(e) = props::spwan_props(&prop_map, delete_props) {
+            error!("failed to spwan props: {e}");
+            api.set_option(ZygiskOption::DlCloseModuleLibrary);
+            return Ok(());
+        }
 
         info!("Companion property spoofing completed");
 

@@ -14,11 +14,4 @@ pub type OriginalNativeGet = unsafe extern "C" fn(
 pub static FAKE_PROPS: LazyLock<Mutex<HashMap<String, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 pub static IS_FULL_MODE: AtomicBool = AtomicBool::new(false);
-pub static ACTIVE_RESET_SESSION: Mutex<Option<ActiveResetSession>> = Mutex::new(None);
 pub static ORIGINAL_NATIVE_GET: Mutex<Option<OriginalNativeGet>> = Mutex::new(None);
-
-#[derive(Clone)]
-pub struct ActiveResetSession {
-    pub package: String,
-    pub backups: HashMap<String, String>,
-}
