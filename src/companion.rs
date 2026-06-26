@@ -433,7 +433,7 @@ fn watch_via_inotify(
         }
         anyhow::bail!("inotify_add_watch on oom_score_adj failed");
     }
-    let wd = wd as u32;
+    let wd = wd as libc::c_int;
 
     // epoll：同时监听 pidfd 和 inotify fd
     let efd = unsafe { libc::epoll_create1(0) };
